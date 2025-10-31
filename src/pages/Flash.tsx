@@ -349,12 +349,22 @@ export default function Flash() {
       addLog('Flash complete! Sending completion signal...');
       await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
 
-      addLog('Device entering MANIFEST mode...');
-      addLog('DO NOT unplug your keyboard - it will reboot automatically!');
+      addLog('Waiting for device to process...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      try {
+        await dfuDetach(device, interfaceNumber);
+        addLog('DETACH command sent successfully');
+      } catch (error: any) {
+        addLog(`Note: DETACH command failed (${error.message}) - this is sometimes normal`);
+      }
+
+      addLog('Device will reboot into application mode...');
+      addLog('Please wait 3 seconds, then manually reset if needed');
 
       setStatus({
         type: 'success',
-        message: 'Firmware flashed successfully! Your keyboard will reboot shortly.',
+        message: 'Firmware flashed successfully! Device will reboot in 3 seconds. If not, press RESET button.',
       });
       setProgress(100);
       addLog('DFU flash completed successfully!');
