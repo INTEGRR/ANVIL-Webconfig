@@ -169,7 +169,11 @@ export default function Configurator() {
       }
 
       const devices = await (navigator as any).hid.requestDevice({
-        filters: [{ vendorId: 0x1209 }]
+        filters: [
+          { vendorId: 0x1209, usagePage: 0xFF60, usage: 0x61 },
+          { vendorId: 0x1209 },
+          { usagePage: 0xFF60, usage: 0x61 }
+        ]
       });
 
       if (devices.length === 0) {
@@ -178,13 +182,21 @@ export default function Configurator() {
       }
 
       const selectedDevice = devices[0];
+
+      console.log('Device Info:', {
+        vendorId: '0x' + selectedDevice.vendorId.toString(16),
+        productId: '0x' + selectedDevice.productId.toString(16),
+        productName: selectedDevice.productName,
+        collections: selectedDevice.collections
+      });
+
       await selectedDevice.open();
       setDevice(selectedDevice);
       setConnected(true);
-      alert('Connected to keyboard!');
+      alert(`Connected to ${selectedDevice.productName || 'keyboard'}!`);
     } catch (error) {
       console.error('Error connecting to keyboard:', error);
-      alert('Failed to connect to keyboard');
+      alert('Failed to connect to keyboard. Check console for details.');
     }
   };
 
@@ -263,7 +275,7 @@ export default function Configurator() {
                   <>
                     <div className="flex items-center gap-2 text-green-400 text-sm">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                      Connected to keyboard
+                      Connected to {device?.productName || 'keyboard'}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -271,7 +283,7 @@ export default function Configurator() {
                         className="flex-1 bg-brand-beige hover:bg-brand-beige/90 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
                       >
                         <Usb className="w-4 h-4" />
-                        Sync to Keyboard
+                        Sync All Keys
                       </button>
                       <button
                         onClick={disconnectFromKeyboard}
@@ -282,13 +294,36 @@ export default function Configurator() {
                     </div>
                   </>
                 ) : (
-                  <button
-                    onClick={connectToKeyboard}
-                    className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-3 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2"
-                  >
-                    <Usb className="w-5 h-5" />
-                    Connect to Keyboard
-                  </button>
+                  <>
+                    <button
+                      onClick={connectToKeyboard}
+                      className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Usb className="w-5 h-5" />
+                      Connect to Keyboard
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const devices = await (navigator as any).hid.requestDevice({ filters: [] });
+                          if (devices.length > 0) {
+                            const dev = devices[0];
+                            console.log('Selected device:', dev);
+                            await dev.open();
+                            setDevice(dev);
+                            setConnected(true);
+                            alert(`Connected to ${dev.productName || 'device'}!\nVendor: 0x${dev.vendorId.toString(16)}\nProduct: 0x${dev.productId.toString(16)}`);
+                          }
+                        } catch (error) {
+                          console.error('Error:', error);
+                          alert('Failed to connect');
+                        }
+                      }}
+                      className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-2 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2 text-sm"
+                    >
+                      Show All HID Devices
+                    </button>
+                  </>
                 )}
                 <p className="text-brand-sage text-xs">
                   Requires Chrome/Edge browser with WebHID support
