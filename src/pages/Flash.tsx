@@ -162,31 +162,49 @@ export default function Flash() {
         addLog(`Using active configuration: ${device.configuration.configurationValue}`);
       }
 
-      addLog('Detecting available endpoints...');
-      const iface = device.configuration!.interfaces[0];
-      const alternate = iface.alternate;
-      addLog(`Interface ${iface.interfaceNumber} has ${alternate.endpoints.length} endpoints`);
-
+      addLog('Detecting available interfaces and endpoints...');
       let outEndpoint: number | null = null;
-      alternate.endpoints.forEach((ep) => {
-        const direction = ep.direction === 'out' ? 'OUT' : 'IN';
-        addLog(`  Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
-        if (ep.direction === 'out') {
-          outEndpoint = ep.endpointNumber;
-        }
-      });
+      let selectedInterface: number | null = null;
+      let selectedAlternate: number | null = null;
 
-      if (outEndpoint === null) {
-        addLog('ERROR: No OUT endpoint found!');
+      for (const iface of device.configuration!.interfaces) {
+        addLog(`Checking Interface ${iface.interfaceNumber}...`);
+
+        for (let altIdx = 0; altIdx < iface.alternates.length; altIdx++) {
+          const alternate = iface.alternates[altIdx];
+          addLog(`  Alternate ${altIdx}: ${alternate.endpoints.length} endpoints`);
+
+          for (const ep of alternate.endpoints) {
+            const direction = ep.direction === 'out' ? 'OUT' : 'IN';
+            addLog(`    Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
+
+            if (ep.direction === 'out' && outEndpoint === null) {
+              outEndpoint = ep.endpointNumber;
+              selectedInterface = iface.interfaceNumber;
+              selectedAlternate = altIdx;
+              addLog(`    ✓ Found OUT endpoint!`);
+            }
+          }
+        }
+      }
+
+      if (outEndpoint === null || selectedInterface === null) {
+        addLog('ERROR: No OUT endpoint found in any interface!');
         throw new Error('No OUT endpoint available on this device');
       }
 
-      addLog(`Using OUT endpoint: ${outEndpoint}`);
+      addLog(`Using Interface ${selectedInterface}, OUT endpoint: ${outEndpoint}`);
 
-      addLog('Claiming interface 0...');
+      addLog(`Claiming interface ${selectedInterface}...`);
       try {
-        await device.claimInterface(0);
+        await device.claimInterface(selectedInterface);
         addLog('Interface claimed successfully');
+
+        if (selectedAlternate !== null && selectedAlternate !== 0) {
+          addLog(`Selecting alternate setting ${selectedAlternate}...`);
+          await device.selectAlternateInterface(selectedInterface, selectedAlternate);
+          addLog('Alternate setting selected');
+        }
       } catch (error: any) {
         addLog(`ERROR claiming interface: ${error.message}`);
         throw error;
@@ -229,8 +247,8 @@ export default function Flash() {
       }
 
       addLog(`Transfer complete: ${successfulTransfers} successful, ${failedTransfers} failed`);
-      addLog('Releasing interface...');
-      await device.releaseInterface(0);
+      addLog(`Releasing interface ${selectedInterface}...`);
+      await device.releaseInterface(selectedInterface);
       addLog('Closing device...');
       await device.close();
 
