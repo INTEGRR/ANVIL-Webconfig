@@ -5,14 +5,17 @@ interface KeyProps {
   label: string;
   width?: number;
   color: string;
-  onClick: (index: number) => void;
+  onClick: (index: number, event: React.MouseEvent) => void;
+  isSelected?: boolean;
 }
 
-function Key({ index, label, width = 1, color, onClick }: KeyProps) {
+function Key({ index, label, width = 1, color, onClick, isSelected = false }: KeyProps) {
   return (
     <button
-      onClick={() => onClick(index)}
-      className="h-12 rounded border-2 border-brand-sage/40 hover:border-brand-beige transition-all font-mono text-xs flex items-center justify-center"
+      onClick={(e) => onClick(index, e)}
+      className={`h-12 rounded border-2 transition-all font-mono text-xs flex items-center justify-center ${
+        isSelected ? 'border-brand-beige border-4 ring-2 ring-brand-beige/50' : 'border-brand-sage/40 hover:border-brand-beige'
+      }`}
       style={{
         width: `${width * 3}rem`,
         backgroundColor: color,
@@ -25,11 +28,12 @@ function Key({ index, label, width = 1, color, onClick }: KeyProps) {
 }
 
 interface KeyboardLayoutProps {
-  onKeyClick: (index: number) => void;
+  onKeyClick: (index: number, event: React.MouseEvent) => void;
   keyColors: string[];
+  selectedKeys?: Set<number>;
 }
 
-export default function KeyboardLayout({ onKeyClick, keyColors }: KeyboardLayoutProps) {
+export default function KeyboardLayout({ onKeyClick, keyColors, selectedKeys = new Set() }: KeyboardLayoutProps) {
   const isoLayout = [
     // Row 0: ESC, F1-F12, F13, PSCR, DEL (0-15) - 16 keys
     [
@@ -149,6 +153,7 @@ export default function KeyboardLayout({ onKeyClick, keyColors }: KeyboardLayout
                 width={key.width}
                 color={keyColors[key.index] || '#25384A'}
                 onClick={onKeyClick}
+                isSelected={selectedKeys.has(key.index)}
               />
             ))}
           </div>

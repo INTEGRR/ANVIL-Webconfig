@@ -7,10 +7,11 @@ interface KeyPosition {
 
 interface KeyboardVisualizerProps {
   keyColors: string[];
-  onKeyClick: (index: number) => void;
+  onKeyClick: (index: number, event: React.MouseEvent) => void;
+  selectedKeys?: Set<number>;
 }
 
-export default function KeyboardVisualizer({ keyColors, onKeyClick }: KeyboardVisualizerProps) {
+export default function KeyboardVisualizer({ keyColors, onKeyClick, selectedKeys = new Set() }: KeyboardVisualizerProps) {
   // Precise key positions mapped to the physical keyboard image
   // Measurements are in percentage of image dimensions
   const keyPositions: KeyPosition[] = [
@@ -130,18 +131,21 @@ export default function KeyboardVisualizer({ keyColors, onKeyClick }: KeyboardVi
         {keyPositions.map((pos, index) => {
           if (pos.height === 0 || pos.width === 0) return null; // Skip invisible keys
 
+          const isSelected = selectedKeys.has(index);
           return (
             <button
               key={index}
-              onClick={() => onKeyClick(index)}
-              className="absolute rounded-sm transition-all duration-200 hover:ring-2 hover:ring-brand-beige cursor-pointer"
+              onClick={(e) => onKeyClick(index, e)}
+              className={`absolute rounded-sm transition-all duration-200 cursor-pointer ${
+                isSelected ? 'ring-4 ring-brand-beige' : 'hover:ring-2 hover:ring-brand-beige'
+              }`}
               style={{
                 left: `${pos.x}%`,
                 top: `${pos.y}%`,
                 width: `${pos.width}%`,
                 height: `${pos.height}%`,
                 backgroundColor: keyColors[index] || 'transparent',
-                opacity: 0.65,
+                opacity: isSelected ? 0.85 : 0.65,
                 mixBlendMode: 'screen',
               }}
               title={`Key ${index}`}

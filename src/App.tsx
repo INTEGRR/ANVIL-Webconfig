@@ -51,7 +51,7 @@ function App() {
     enabled: true,
   });
 
-  const [selectedKey, setSelectedKey] = useState<number | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set());
   const [keyColors, setKeyColors] = useState<KeyColor[]>(
     Array.from({ length: 85 }, () => ({ h: 0, s: 255, v: 220 }))
   );
@@ -196,14 +196,42 @@ function App() {
     }
   };
 
-  const handleKeyClick = (keyIndex: number) => {
-    setSelectedKey(keyIndex);
-    setPickerHSV(keyColors[keyIndex] || { h: 0, s: 255, v: 220 });
+  const handleKeyClick = (keyIndex: number, event?: React.MouseEvent) => {
+    if (event?.shiftKey && selectedKeys.size > 0) {
+      // Shift: select range from first selected to current
+      const firstSelected = Math.min(...Array.from(selectedKeys));
+      const start = Math.min(firstSelected, keyIndex);
+      const end = Math.max(firstSelected, keyIndex);
+      const newSelection = new Set(selectedKeys);
+      for (let i = start; i <= end; i++) {
+        newSelection.add(i);
+      }
+      setSelectedKeys(newSelection);
+    } else if (event?.ctrlKey || event?.metaKey) {
+      // Ctrl/Cmd: toggle single key
+      const newSelection = new Set(selectedKeys);
+      if (newSelection.has(keyIndex)) {
+        newSelection.delete(keyIndex);
+      } else {
+        newSelection.add(keyIndex);
+      }
+      setSelectedKeys(newSelection);
+    } else {
+      // Normal click: select only this key
+      setSelectedKeys(new Set([keyIndex]));
+    }
+
+    // Update picker to first selected key's color
+    const firstKey = event?.ctrlKey || event?.metaKey ? keyIndex : (selectedKeys.size > 0 ? Math.min(...Array.from(selectedKeys)) : keyIndex);
+    setPickerHSV(keyColors[firstKey] || { h: 0, s: 255, v: 220 });
   };
 
-  const applyColorToKey = () => {
-    if (selectedKey !== null) {
-      setKeyColor(selectedKey, pickerHSV.h, pickerHSV.s, pickerHSV.v);
+  const applyColorToKey = async () => {
+    if (selectedKeys.size === 0) return;
+
+    // Apply to all selected keys
+    for (const keyIndex of Array.from(selectedKeys)) {
+      setKeyColor(keyIndex, pickerHSV.h, pickerHSV.s, pickerHSV.v);
     }
   };
 
@@ -221,8 +249,14 @@ function App() {
   };
 
   const loadPreset = async (presetColors: KeyColor[]) => {
-    setKeyColors(presetColors);
-    await uploadBulkColors(presetColors);
+    // Ensure all 85 keys are present
+    const fullColors = Array.from({ length: 85 }, (_, i) =>
+      presetColors[i] || { h: 0, s: 255, v: 220 }
+    );
+    setKeyColors(fullColors);
+    if (device) {
+      await uploadBulkColors(fullColors);
+    }
   };
 
   const deletePreset = (index: number) => {
@@ -259,8 +293,14 @@ function App() {
       try {
         const config = JSON.parse(e.target?.result as string);
         if (config.keyColors) {
-          setKeyColors(config.keyColors);
-          await uploadBulkColors(config.keyColors);
+          // Ensure all 85 keys are present
+          const fullColors = Array.from({ length: 85 }, (_, i) =>
+            config.keyColors[i] || { h: 0, s: 255, v: 220 }
+          );
+          setKeyColors(fullColors);
+          if (device) {
+            await uploadBulkColors(fullColors);
+          }
         }
       } catch (err) {
         alert('Invalid configuration file');
@@ -448,16 +488,19 @@ function App() {
 
               <div className="mb-6 overflow-x-auto">
                 {useVisualizer ? (
-                  <KeyboardVisualizer onKeyClick={handleKeyClick} keyColors={keyColorStrings} />
+                  <KeyboardVisualizer onKeyClick={handleKeyClick} keyColors={keyColorStrings} selectedKeys={selectedKeys} />
                 ) : (
-                  <KeyboardLayout onKeyClick={handleKeyClick} keyColors={keyColorStrings} />
+                  <KeyboardLayout onKeyClick={handleKeyClick} keyColors={keyColorStrings} selectedKeys={selectedKeys} />
                 )}
               </div>
 
-              {selectedKey !== null && (
+              {selectedKeys.size > 0 && (
                 <div className="bg-brand-teal/60 rounded-xl p-4 space-y-4 border border-brand-sage/20">
                   <h3 className="text-lg font-semibold text-brand-beige">
-                    Key {selectedKey} Selected
+                    {selectedKeys.size === 1
+                      ? `Key ${Array.from(selectedKeys)[0]} Selected`
+                      : `${selectedKeys.size} Keys Selected (${Array.from(selectedKeys).sort((a, b) => a - b).slice(0, 5).join(', ')}${selectedKeys.size > 5 ? '...' : ''})`
+                    }
                   </h3>
 
                   <div className="space-y-3">
@@ -517,8 +560,13 @@ function App() {
                       onClick={applyColorToKey}
                       className="w-full bg-brand-beige hover:bg-brand-beige/90 py-3 rounded-lg font-semibold transition-colors"
                     >
-                      Apply Color to Key {selectedKey}
+                      Apply Color to {selectedKeys.size === 1 ? 'Key' : `${selectedKeys.size} Keys`}
                     </button>
+
+                    <div className="text-xs text-brand-sage mt-2 space-y-1">
+                      <p>💡 <strong>Shift + Click:</strong> Select range</p>
+                      <p>💡 <strong>Ctrl/Cmd + Click:</strong> Toggle selection</p>
+                    </div>
                   </div>
                 </div>
               )}
