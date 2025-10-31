@@ -42,6 +42,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: 
           fill={fillColor}
           stroke={isSelected ? '#F5E6D3' : '#2A3B3C'}
           strokeWidth={isSelected ? 3 : 1}
+          data-key-index={key.index}
         />
         <text
           x={x + width / 2}
@@ -61,7 +62,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: 
   };
 
   return (
-    <div className="w-full bg-brand-teal/60 rounded-xl border border-brand-sage/30 p-4">
+    <div className="w-full bg-brand-teal/60 rounded-xl border border-brand-sage/30 p-4 keyboard-layout-container">
       <svg
         viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
         className="w-full h-auto"

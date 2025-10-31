@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowUp, ArrowDown, Download, Clock, TrendingUp, Search } from 'lucide-react';
+import { ArrowUp, ArrowDown, Download, Clock, TrendingUp, Search, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Preset {
@@ -19,6 +19,7 @@ interface Preset {
   upvotes?: number;
   downvotes?: number;
   user_vote?: number;
+  comment_count?: number;
 }
 
 type SortOption = 'hot' | 'new' | 'top';
@@ -62,6 +63,16 @@ export default function Gallery() {
         .eq('user_id', user.id)
         .in('preset_id', presetIds) : { data: null };
 
+      const { data: commentsData } = await supabase
+        .from('comments')
+        .select('preset_id')
+        .in('preset_id', presetIds);
+
+      const commentCounts = new Map<string, number>();
+      commentsData?.forEach(comment => {
+        commentCounts.set(comment.preset_id, (commentCounts.get(comment.preset_id) || 0) + 1);
+      });
+
       const votesMap = new Map(userVotes?.map(v => [v.preset_id, v.vote]) || []);
       const scoresMap = new Map(scoresData?.map(s => [s.preset_id, s]) || []);
 
@@ -73,6 +84,7 @@ export default function Gallery() {
           upvotes: scores?.upvotes || 0,
           downvotes: scores?.downvotes || 0,
           user_vote: votesMap.get(preset.id) || 0,
+          comment_count: commentCounts.get(preset.id) || 0,
         };
       }) || [];
 
@@ -278,6 +290,10 @@ export default function Gallery() {
                     <span className="flex items-center gap-1">
                       <Download className="w-3 h-3" />
                       {preset.download_count}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="w-3 h-3" />
+                      {preset.comment_count || 0}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />

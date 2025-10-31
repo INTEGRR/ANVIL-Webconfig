@@ -65,6 +65,45 @@ export default function Configurator() {
     }
   };
 
+  const generateThumbnail = async (): Promise<string | null> => {
+    try {
+      const keyboardElement = document.querySelector('.keyboard-layout-container');
+      if (!keyboardElement) return null;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      canvas.width = 800;
+      canvas.height = 300;
+
+      ctx.fillStyle = '#2A3B3C';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const svgElements = keyboardElement.querySelectorAll('rect[data-key-index]');
+      svgElements.forEach((rect) => {
+        const index = parseInt(rect.getAttribute('data-key-index') || '0');
+        const [h, s, v] = keyColors[index] || [0, 0, 0];
+
+        const x = parseFloat(rect.getAttribute('x') || '0') * 0.8;
+        const y = parseFloat(rect.getAttribute('y') || '0') * 0.8;
+        const width = parseFloat(rect.getAttribute('width') || '0') * 0.8;
+        const height = parseFloat(rect.getAttribute('height') || '0') * 0.8;
+
+        const hue = (h / 255) * 360;
+        const saturation = (s / 255) * 100;
+        const value = (v / 255) * 100;
+        ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${value}%)`;
+        ctx.fillRect(x, y, width, height);
+      });
+
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Error generating thumbnail:', error);
+      return null;
+    }
+  };
+
   const handleSave = async () => {
     if (!user) {
       alert('Please sign in to save presets');
@@ -90,6 +129,8 @@ export default function Configurator() {
         return;
       }
 
+      const thumbnail = await generateThumbnail();
+
       const rgbConfig = {
         colors: keyColors,
         timestamp: new Date().toISOString(),
@@ -103,6 +144,7 @@ export default function Configurator() {
           creator_id: user.id,
           keyboard_model_id: keyboardModel.id,
           rgb_config: rgbConfig,
+          thumbnail_url: thumbnail,
           visibility: 'public',
         });
 
