@@ -266,7 +266,26 @@ export default function Flash() {
       addLog(`Setting start address to 0x${startAddress.toString(16)}...`);
       await dfuSetAddress(device, interfaceNumber, startAddress);
 
-      status = await dfuGetStatus(device, interfaceNumber);
+      let pollAttempts = 0;
+      while (pollAttempts < 50) {
+        status = await dfuGetStatus(device, interfaceNumber);
+
+        if (status.state === 5) {
+          break;
+        }
+
+        if (status.state === 4) {
+          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        } else if (status.state === 10) {
+          throw new Error('Failed to set address - device rejected command');
+        } else {
+          break;
+        }
+
+        pollAttempts++;
+      }
+
       addLog(`Address set successfully (state: ${status.state})`);
 
       const transferSize = 2048;
