@@ -243,7 +243,7 @@ export default function Flash() {
         const end = Math.min(start + transferSize, data.length);
         const chunk = data.slice(start, end);
 
-        await dfuDownload(device, interfaceNumber, blockNum, chunk);
+        await dfuDownload(device, interfaceNumber, blockNum + 2, chunk);
 
         let pollAttempts = 0;
         const maxPollAttempts = 100;
