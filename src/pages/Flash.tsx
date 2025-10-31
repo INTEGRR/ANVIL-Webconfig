@@ -53,14 +53,7 @@ export default function Flash() {
       setStatus({ type: 'connecting', message: 'Requesting USB device access...' });
 
       const selectedDevice = await navigator.usb.requestDevice({
-        filters: [
-          { vendorId: 0x03eb },
-          { vendorId: 0x2341 },
-          { vendorId: 0x16c0 },
-          { vendorId: 0x2e8a },
-          { vendorId: 0x1209 },
-          { vendorId: 0xcafe },
-        ],
+        filters: [],
       });
 
       await selectedDevice.open();
