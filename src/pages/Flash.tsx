@@ -346,29 +346,51 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete!');
-      addLog('Waiting for device to finish writing...');
-      await new Promise(resolve => setTimeout(resolve, 200));
+      addLog('All blocks transferred successfully!');
 
-      addLog('Checking final status...');
-      try {
-        const finalStatus = await dfuGetStatus(device, interfaceNumber);
-        addLog(`Final state: ${finalStatus.state}`);
-      } catch (e: any) {
-        addLog(`Status check failed: ${e.message}`);
+      addLog('Sending zero-length DNLOAD to signal completion...');
+      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
+
+      addLog('Polling device status for manifestation...');
+      let manifestAttempts = 0;
+      let inManifest = false;
+
+      while (manifestAttempts < 20) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        try {
+          const status = await dfuGetStatus(device, interfaceNumber);
+          addLog(`Status poll ${manifestAttempts + 1}: state=${status.state}, status=${status.status}`);
+
+          if (status.state === 7) {
+            addLog('Device in MANIFEST state - firmware being written!');
+            inManifest = true;
+          } else if (status.state === 8) {
+            addLog('Device in MANIFEST-WAIT-RESET state');
+            inManifest = true;
+            break;
+          } else if (status.state === 2 && inManifest) {
+            addLog('Device returned to IDLE after manifestation');
+            break;
+          }
+
+          manifestAttempts++;
+        } catch (e: any) {
+          addLog(`Status poll failed (normal if device disconnected): ${e.message}`);
+          break;
+        }
       }
 
-      addLog('Sending DETACH to exit bootloader...');
+      addLog('Attempting to send DETACH command...');
       try {
         await dfuDetach(device, interfaceNumber);
-        addLog('✓ DETACH sent - device should reboot now');
+        addLog('✓ DETACH sent successfully');
       } catch (error: any) {
-        addLog(`DETACH failed: ${error.message} - You may need to manually reset`);
+        addLog(`DETACH command error (device may have already reset): ${error.message}`);
       }
 
-      addLog('Waiting 2 seconds for reboot...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      addLog('If keyboard is not working, press the RESET button once');
+      addLog('Firmware flash complete! Device should reboot automatically.');
+      addLog('If device does not respond, press RESET button once.');
 
       setStatus({
         type: 'success',
