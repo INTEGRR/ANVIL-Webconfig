@@ -9,7 +9,6 @@ import MyPresets from './pages/MyPresets';
 import PresetDetail from './pages/PresetDetail';
 import Profile from './pages/Profile';
 import Flash from './pages/Flash';
-import Diagnostics from './pages/Diagnostics';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -49,7 +48,6 @@ function App() {
               }
             />
             <Route path="/flash" element={<Flash />} />
-            <Route path="/diagnostics" element={<Diagnostics />} />
           </Routes>
         </div>
       </BrowserRouter>

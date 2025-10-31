@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Keyboard, User, LogOut, Settings, BookMarked, Grid3x3, Plus, Zap, Activity } from 'lucide-react';
+import { Keyboard, User, LogOut, Settings, BookMarked, Grid3x3, Plus, Zap } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
@@ -49,13 +49,6 @@ export default function Navbar() {
               >
                 <Zap className="w-4 h-4" />
                 Flash
-              </Link>
-              <Link
-                to="/diagnostics"
-                className="text-brand-blue hover:text-white transition-colors flex items-center gap-2"
-              >
-                <Activity className="w-4 h-4" />
-                Diagnostics
               </Link>
               {user && (
                 <>
