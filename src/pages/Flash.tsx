@@ -163,28 +163,18 @@ export default function Flash() {
     );
   };
 
-  const dfuLeave = async (device: USBDevice, interfaceNumber: number) => {
-    addLog('Sending DFU LEAVE command to exit bootloader...');
+  const dfuDetach = async (device: USBDevice, interfaceNumber: number) => {
+    addLog('Sending DFU DETACH to exit bootloader...');
     await device.controlTransferOut(
       {
         requestType: 'class',
         recipient: 'interface',
-        request: DFU_COMMANDS.DNLOAD,
-        value: 0,
+        request: DFU_COMMANDS.DETACH,
+        value: 1000,
         index: interfaceNumber,
-      },
-      new Uint8Array(0)
+      }
     );
-
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const statusAfterLeave = await dfuGetStatus(device, interfaceNumber);
-    addLog(`Status after LEAVE: state=${statusAfterLeave.state}, status=${statusAfterLeave.status}`);
-
-    if (statusAfterLeave.state !== 0) {
-      addLog('Clearing status after LEAVE...');
-      await dfuClearStatus(device, interfaceNumber);
-    }
+    addLog('Device will reboot into application mode');
   };
 
   const dfuMassErase = async (device: USBDevice, interfaceNumber: number) => {
@@ -349,23 +339,19 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete! Sending completion signal...');
+      addLog('Flash complete! Finalizing...');
       await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
 
-      addLog('Waiting for device to enter manifest phase...');
-      status = await dfuGetStatus(device, interfaceNumber);
-      addLog(`Device state after completion: ${status.state}`);
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      if (status.state === 7) {
-        addLog('Device is in MANIFEST-WAIT-RESET state, will reboot automatically');
-        await new Promise(resolve => setTimeout(resolve, 200));
-      } else if (status.state === 2 || status.state === 5) {
-        addLog('Device needs explicit LEAVE command');
-        try {
-          await dfuLeave(device, interfaceNumber);
-        } catch (e) {
-          addLog('Device disconnected during LEAVE (normal behavior)');
-        }
+      status = await dfuGetStatus(device, interfaceNumber);
+      addLog(`Device state after download: ${status.state}`);
+
+      try {
+        await dfuDetach(device, interfaceNumber);
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (e) {
+        addLog('Device already disconnected (normal after DETACH)');
       }
 
       addLog(`Releasing DFU interface ${interfaceNumber}...`);
