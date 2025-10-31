@@ -44,7 +44,7 @@ export default function Configurator() {
     });
   };
 
-  const handleColorChange = async (h: number, s: number, v: number) => {
+  const handleColorChange = (h: number, s: number, v: number) => {
     setKeyColors((prev) => {
       const newColors = prev.map(c => [...c]);
       selectedKeys.forEach((index) => {
@@ -52,12 +52,6 @@ export default function Configurator() {
       });
       return newColors;
     });
-
-    if (connected && device) {
-      for (const index of selectedKeys) {
-        await sendColorToKeyboard(index, h, s, v);
-      }
-    }
   };
 
   const handleClearSelection = () => {
@@ -387,6 +381,26 @@ export default function Configurator() {
               onClearSelection={handleClearSelection}
               onResetColors={handleResetColors}
             />
+
+            {selectedKeys.size > 0 && connected && (
+              <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
+                <button
+                  onClick={async () => {
+                    for (const index of selectedKeys) {
+                      await sendColorToKeyboard(index, keyColors[index][0], keyColors[index][1], keyColors[index][2]);
+                    }
+                    alert(`Applied colors to ${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''}!`);
+                  }}
+                  className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-lg"
+                >
+                  <Usb className="w-6 h-6" />
+                  Apply to Keyboard ({selectedKeys.size} key{selectedKeys.size > 1 ? 's' : ''})
+                </button>
+                <p className="text-brand-sage text-xs mt-2 text-center">
+                  Sends selected colors to your connected keyboard
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

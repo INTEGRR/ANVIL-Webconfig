@@ -17,7 +17,7 @@ export default function RGBControls({
   onResetColors,
 }: RGBControlsProps) {
   const selectedKey = selectedKeys.size === 1 ? Array.from(selectedKeys)[0] : null;
-  const currentColor = selectedKey !== null ? keyColors[selectedKey] : null;
+  const currentColor = selectedKey !== null ? keyColors[selectedKey] : [0, 255, 255];
 
   const handleHexChange = (hex: string) => {
     const rgb = hexToRgb(hex);
@@ -63,8 +63,7 @@ export default function RGBControls({
               </button>
             </div>
 
-            {currentColor && (
-              <>
+            <>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-brand-blue mb-2">
                     Hue ({currentColor[0]})
@@ -137,7 +136,6 @@ export default function RGBControls({
                   </div>
                 </div>
               </>
-            )}
           </>
         )}
       </div>
