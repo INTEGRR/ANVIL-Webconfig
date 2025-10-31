@@ -213,10 +213,28 @@ export default function Flash() {
       addLog('Skipping mass erase (causes device disconnect on this bootloader)');
       addLog('STM32 bootloader will auto-erase sectors during write operation');
 
+      const startAddress = 0x08000000;
+      addLog(`Setting start address to 0x${startAddress.toString(16)}...`);
+      await dfuSetAddress(device, interfaceNumber, startAddress);
+
+      status = await dfuGetStatus(device, interfaceNumber);
+      let pollAttempts = 0;
+      while (status.state === 4 && pollAttempts < 50) {
+        const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        status = await dfuGetStatus(device, interfaceNumber);
+        pollAttempts++;
+      }
+
+      if (status.state === 10) {
+        throw new Error('Failed to set address - device rejected command');
+      }
+
+      addLog(`Address set successfully (state: ${status.state})`);
+
       const transferSize = 2048;
       const totalBlocks = Math.ceil(data.length / transferSize);
       addLog(`Starting DFU download: ${totalBlocks} blocks of ${transferSize} bytes`);
-      addLog('Note: Trying direct download without set address (some bootloaders auto-detect)');
 
       setStatus({ type: 'flashing', message: 'Flashing firmware via DFU...' });
 
