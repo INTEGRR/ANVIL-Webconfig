@@ -6,8 +6,22 @@ interface FlashStatus {
   message: string;
 }
 
+const PRESET_FIRMWARES = [
+  {
+    name: 'Per-Key EEPROM Save',
+    filename: 'teleport_native_iso_per_Key_eeprom_save.bin',
+    description: 'Firmware with per-key EEPROM save functionality'
+  },
+  {
+    name: 'Performance Mode',
+    filename: 'teleport_native_iso_perfmode.bin',
+    description: 'High-performance optimized firmware'
+  }
+];
+
 export default function Flash() {
   const [firmwareFile, setFirmwareFile] = useState<File | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [status, setStatus] = useState<FlashStatus>({ type: 'idle', message: '' });
   const [device, setDevice] = useState<USBDevice | null>(null);
   const [progress, setProgress] = useState(0);
@@ -45,11 +59,34 @@ export default function Flash() {
       return;
     }
 
+    setSelectedPreset('');
     setFirmwareFile(file);
     setStatus({
       type: 'idle',
       message: `File selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
     });
+  };
+
+  const handlePresetSelect = async (filename: string) => {
+    try {
+      const response = await fetch(`/${filename}`);
+      if (!response.ok) throw new Error('Failed to load firmware');
+
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: 'application/octet-stream' });
+
+      setSelectedPreset(filename);
+      setFirmwareFile(file);
+      setStatus({
+        type: 'idle',
+        message: `Preset selected: ${filename} (${(file.size / 1024).toFixed(2)} KB)`,
+      });
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: 'Failed to load preset firmware. Please try uploading manually.',
+      });
+    }
   };
 
   const connectToDevice = async () => {
@@ -263,6 +300,36 @@ export default function Flash() {
             </div>
 
             <div className="space-y-4">
+              <div className="bg-brand-brown/30 rounded-lg p-4">
+                <label className="block text-white font-medium mb-2">Preset Firmwares</label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handlePresetSelect(e.target.value)}
+                  className="w-full bg-brand-teal/60 text-white px-4 py-3 rounded-lg border border-brand-sage/30 focus:border-brand-beige focus:outline-none"
+                >
+                  <option value="">Select a preset firmware...</option>
+                  {PRESET_FIRMWARES.map((preset) => (
+                    <option key={preset.filename} value={preset.filename}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedPreset && (
+                  <p className="text-brand-sage text-sm mt-2">
+                    {PRESET_FIRMWARES.find(p => p.filename === selectedPreset)?.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-brand-sage/30"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-brand-teal text-brand-sage">OR</span>
+                </div>
+              </div>
+
               <div>
                 <input
                   ref={fileInputRef}
@@ -276,7 +343,7 @@ export default function Flash() {
                   className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white px-6 py-4 rounded-lg border-2 border-dashed border-brand-sage/30 hover:border-brand-beige/50 transition-colors flex flex-col items-center gap-2"
                 >
                   <Upload className="w-8 h-8 text-brand-beige" />
-                  <span className="font-medium">Click to upload firmware</span>
+                  <span className="font-medium">Upload custom firmware</span>
                   <span className="text-sm text-brand-sage">Supported: .bin, .hex, .uf2</span>
                 </button>
               </div>
