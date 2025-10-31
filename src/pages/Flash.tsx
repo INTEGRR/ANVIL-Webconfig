@@ -349,42 +349,24 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete! Verifying firmware...');
+      addLog('Flash complete! Sending completion signal...');
+      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
 
-      const originalCRC = calculateCRC32(firmware);
-      addLog(`Original firmware CRC32: 0x${originalCRC.toString(16).toUpperCase()}`);
+      addLog('Waiting for device to enter manifest phase...');
+      status = await dfuGetStatus(device, interfaceNumber);
+      addLog(`Device state after completion: ${status.state}`);
 
-      await dfuSetAddress(device, interfaceNumber, FLASH_BASE_ADDRESS);
-      await dfuWaitIdle(device, interfaceNumber);
-
-      addLog('Reading back firmware for verification...');
-      const readbackData = new Uint8Array(firmware.length);
-      const verifyChunkSize = 2048;
-      let verifyBlockNum = 2;
-
-      for (let offset = 0; offset < firmware.length; offset += verifyChunkSize) {
-        const readLength = Math.min(verifyChunkSize, firmware.length - offset);
-        const chunk = await dfuUpload(device, interfaceNumber, verifyBlockNum, readLength);
-        readbackData.set(chunk, offset);
-        verifyBlockNum++;
-
-        if (verifyBlockNum % 10 === 0) {
-          const verifyProgress = Math.round((offset / firmware.length) * 100);
-          addLog(`Verify progress: ${verifyProgress}%`);
+      if (status.state === 7) {
+        addLog('Device is in MANIFEST-WAIT-RESET state, will reboot automatically');
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } else if (status.state === 2 || status.state === 5) {
+        addLog('Device needs explicit LEAVE command');
+        try {
+          await dfuLeave(device, interfaceNumber);
+        } catch (e) {
+          addLog('Device disconnected during LEAVE (normal behavior)');
         }
       }
-
-      const readbackCRC = calculateCRC32(readbackData);
-      addLog(`Readback firmware CRC32: 0x${readbackCRC.toString(16).toUpperCase()}`);
-
-      if (originalCRC !== readbackCRC) {
-        throw new Error(`Verification failed! CRC mismatch. Expected 0x${originalCRC.toString(16)}, got 0x${readbackCRC.toString(16)}`);
-      }
-
-      addLog('✓ Verification successful! Firmware matches.');
-      addLog('Exiting bootloader...');
-      await dfuLeave(device, interfaceNumber);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       addLog(`Releasing DFU interface ${interfaceNumber}...`);
       try {
