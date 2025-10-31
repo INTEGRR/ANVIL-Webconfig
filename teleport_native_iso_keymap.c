@@ -1,9 +1,9 @@
 #include QMK_KEYBOARD_H
 #include "raw_hid.h"
-#include <avr/eeprom.h>
+#include "eeprom.h"
 
 // EEPROM address for storing RGB settings
-#define EECONFIG_RGB_LEDMAP (uint8_t*)32
+#define EECONFIG_RGB_LEDMAP_ADDR 32
 
 // Per-Key RGB Configuration
 // Edit these arrays to customize each key's color
@@ -161,12 +161,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 // Save LED map to EEPROM
 void save_ledmap_to_eeprom(void) {
-    eeprom_update_block(ledmap, EECONFIG_RGB_LEDMAP, sizeof(ledmap));
+    eeprom_update_block(ledmap, (void*)EECONFIG_RGB_LEDMAP_ADDR, sizeof(ledmap));
 }
 
 // Load LED map from EEPROM
 void load_ledmap_from_eeprom(void) {
-    eeprom_read_block(ledmap, EECONFIG_RGB_LEDMAP, sizeof(ledmap));
+    eeprom_read_block(ledmap, (const void*)EECONFIG_RGB_LEDMAP_ADDR, sizeof(ledmap));
 }
 
 // Initialize keyboard - load settings from EEPROM
