@@ -269,24 +269,31 @@ export default function Flash() {
       let pollAttempts = 0;
       while (pollAttempts < 50) {
         status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`SET_ADDRESS status poll ${pollAttempts + 1}: state=${status.state}, status=${status.status}, pollTimeout=${status.pollTimeout}ms`);
 
         if (status.state === 5) {
+          addLog('Device in DFU_DNLOAD_IDLE - address set successfully!');
           break;
         }
 
         if (status.state === 4) {
           const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+          addLog(`Device in DFU_DNBUSY - waiting ${waitTime}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else if (status.state === 10) {
-          throw new Error('Failed to set address - device rejected command');
+          throw new Error('DFU_ERROR state - device rejected SET_ADDRESS command');
+        } else if (status.state === 2) {
+          addLog('Device in DFU_IDLE - address command accepted');
+          break;
         } else {
+          addLog(`Unexpected state ${status.state} - continuing...`);
           break;
         }
 
         pollAttempts++;
       }
 
-      addLog(`Address set successfully (state: ${status.state})`);
+      addLog(`SET_ADDRESS complete (final state: ${status.state})`);
 
       const transferSize = 2048;
       const totalBlocks = Math.ceil(data.length / transferSize);
