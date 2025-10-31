@@ -278,24 +278,37 @@ export default function Flash() {
 
         await dfuDownload(device, interfaceNumber, blockNum, chunk);
 
-        status = await dfuGetStatus(device, interfaceNumber);
+        let pollAttempts = 0;
+        const maxPollAttempts = 100;
 
-        while (status.state === 4 || status.state === 5) {
-          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 100;
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+        while (pollAttempts < maxPollAttempts) {
           status = await dfuGetStatus(device, interfaceNumber);
+
+          if (status.state === 2) {
+            break;
+          }
+
+          if (status.state === 10) {
+            const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
+                                 'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
+                                 'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
+            const statusName = statusNames[status.status] || `Unknown(${status.status})`;
+            throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
+          }
+
+          if (status.state === 4 || status.state === 5) {
+            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          } else {
+            addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}, continuing...`);
+            break;
+          }
+
+          pollAttempts++;
         }
 
-        if (status.state === 10) {
-          const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
-                               'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
-                               'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
-          const statusName = statusNames[status.status] || `Unknown(${status.status})`;
-          throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
-        }
-
-        if (status.state !== 2) {
-          addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}`);
+        if (pollAttempts >= maxPollAttempts) {
+          throw new Error(`Timeout waiting for device ready at block ${blockNum}`);
         }
 
         const currentProgress = Math.round(((blockNum + 1) / totalBlocks) * 100);
