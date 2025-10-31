@@ -24,7 +24,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: 
     const height = key.height * KEY_SIZE - 2;
 
     const color = keyColors[key.index];
-    const fillColor = color ? hsvToHex(color[0], color[1], color[2]) : '#666';
+    const fillColor = color && color.length === 3 ? hsvToHex(color[0], color[1], color[2]) : '#666666';
     const isSelected = selectedKeys.has(key.index);
 
     return (
