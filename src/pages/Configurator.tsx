@@ -1,18 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Save, Download, Upload } from 'lucide-react';
+import { Save, Download, Upload, Usb } from 'lucide-react';
 import KeyboardLayout from '../components/KeyboardLayout';
 import RGBControls from '../components/RGBControls';
 import { DEFAULT_COLORS } from '../data/keyboardLayout';
 
 export default function Configurator() {
   const { user } = useAuth();
+  const location = useLocation();
   const [keyColors, setKeyColors] = useState<number[][]>(DEFAULT_COLORS.map(c => [...c]));
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set());
   const [presetName, setPresetName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [device, setDevice] = useState<any>(null);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.preset) {
+      const loadedPreset = location.state.preset;
+      if (loadedPreset.colors && Array.isArray(loadedPreset.colors)) {
+        setKeyColors(loadedPreset.colors);
+      }
+    }
+  }, [location.state]);
 
   const handleKeyClick = (index: number, shiftKey: boolean) => {
     setSelectedKeys((prev) => {
@@ -31,7 +44,7 @@ export default function Configurator() {
     });
   };
 
-  const handleColorChange = (h: number, s: number, v: number) => {
+  const handleColorChange = async (h: number, s: number, v: number) => {
     setKeyColors((prev) => {
       const newColors = prev.map(c => [...c]);
       selectedKeys.forEach((index) => {
@@ -39,6 +52,12 @@ export default function Configurator() {
       });
       return newColors;
     });
+
+    if (connected && device) {
+      for (const index of selectedKeys) {
+        await sendColorToKeyboard(index, h, s, v);
+      }
+    }
   };
 
   const handleClearSelection = () => {
@@ -148,6 +167,81 @@ export default function Configurator() {
     e.target.value = '';
   };
 
+  const connectToKeyboard = async () => {
+    try {
+      if (!('hid' in navigator)) {
+        alert('WebHID is not supported in your browser. Please use Chrome or Edge.');
+        return;
+      }
+
+      const devices = await (navigator as any).hid.requestDevice({
+        filters: [{ vendorId: 0x1209 }]
+      });
+
+      if (devices.length === 0) {
+        alert('No device selected');
+        return;
+      }
+
+      const selectedDevice = devices[0];
+      await selectedDevice.open();
+      setDevice(selectedDevice);
+      setConnected(true);
+      alert('Connected to keyboard!');
+    } catch (error) {
+      console.error('Error connecting to keyboard:', error);
+      alert('Failed to connect to keyboard');
+    }
+  };
+
+  const disconnectFromKeyboard = async () => {
+    if (device) {
+      try {
+        await device.close();
+        setDevice(null);
+        setConnected(false);
+        alert('Disconnected from keyboard');
+      } catch (error) {
+        console.error('Error disconnecting:', error);
+      }
+    }
+  };
+
+  const sendColorToKeyboard = async (keyIndex: number, h: number, s: number, v: number) => {
+    if (!device || !connected) return;
+
+    try {
+      const data = new Uint8Array(32);
+      data[0] = 0x20;
+      data[1] = keyIndex;
+      data[2] = h;
+      data[3] = s;
+      data[4] = v;
+
+      await device.sendReport(0, data);
+    } catch (error) {
+      console.error('Error sending color to keyboard:', error);
+    }
+  };
+
+  const syncAllColorsToKeyboard = async () => {
+    if (!device || !connected) {
+      alert('Please connect to keyboard first');
+      return;
+    }
+
+    try {
+      for (let i = 0; i < keyColors.length; i++) {
+        await sendColorToKeyboard(i, keyColors[i][0], keyColors[i][1], keyColors[i][2]);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      alert('All colors synced to keyboard!');
+    } catch (error) {
+      console.error('Error syncing colors:', error);
+      alert('Failed to sync colors to keyboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-brand-brown">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -163,6 +257,50 @@ export default function Configurator() {
               selectedKeys={selectedKeys}
               onKeyClick={handleKeyClick}
             />
+
+            <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Usb className="w-5 h-5 text-brand-beige" />
+                Hardware Connection
+              </h2>
+
+              <div className="space-y-3 mb-6">
+                {connected ? (
+                  <>
+                    <div className="flex items-center gap-2 text-green-400 text-sm">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      Connected to keyboard
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={syncAllColorsToKeyboard}
+                        className="flex-1 bg-brand-beige hover:bg-brand-beige/90 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Usb className="w-4 h-4" />
+                        Sync to Keyboard
+                      </button>
+                      <button
+                        onClick={disconnectFromKeyboard}
+                        className="px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg font-semibold transition-colors text-sm"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={connectToKeyboard}
+                    className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-3 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2"
+                  >
+                    <Usb className="w-5 h-5" />
+                    Connect to Keyboard
+                  </button>
+                )}
+                <p className="text-brand-sage text-xs">
+                  Requires Chrome/Edge browser with WebHID support
+                </p>
+              </div>
+            </div>
 
             <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
               <h2 className="text-xl font-bold text-white mb-4">Save Preset</h2>
