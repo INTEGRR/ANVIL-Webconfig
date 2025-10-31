@@ -128,6 +128,22 @@ export default function Flash() {
     );
   };
 
+  const dfuMassErase = async (device: USBDevice, interfaceNumber: number) => {
+    const cmd = new Uint8Array(1);
+    cmd[0] = 0x41;
+
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: 0,
+        index: interfaceNumber,
+      },
+      cmd
+    );
+  };
+
   const waitForDfuIdle = async (device: USBDevice, interfaceNumber: number, allowBusy = false) => {
     let attempts = 0;
     while (attempts < 100) {
@@ -192,6 +208,35 @@ export default function Flash() {
         await new Promise(resolve => setTimeout(resolve, 100));
         status = await dfuGetStatus(device, interfaceNumber);
         addLog(`State after abort: ${status.state}`);
+      }
+
+      try {
+        addLog('Attempting mass erase (dfuse protocol)...');
+        await dfuMassErase(device, interfaceNumber);
+
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`Erase initiated, state: ${status.state}, pollTimeout: ${status.pollTimeout}ms`);
+
+        while (status.state === 4 || status.state === 5) {
+          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 1000;
+          addLog(`Waiting ${waitTime}ms for erase to complete...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          status = await dfuGetStatus(device, interfaceNumber);
+          addLog(`Erase status check: state ${status.state}`);
+        }
+
+        if (status.state === 2) {
+          addLog('✓ Mass erase completed successfully');
+        } else if (status.state === 10) {
+          addLog('⚠ Mass erase not supported by this bootloader, continuing anyway...');
+          await dfuClearStatus(device, interfaceNumber);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          addLog(`⚠ Unexpected state ${status.state} after erase, continuing anyway...`);
+        }
+      } catch (eraseError) {
+        addLog('⚠ Mass erase command failed (might not be supported), continuing with direct flash...');
+        console.warn('Erase error:', eraseError);
       }
 
       const transferSize = 2048;
