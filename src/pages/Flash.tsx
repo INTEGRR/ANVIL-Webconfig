@@ -339,19 +339,17 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete! Finalizing...');
+      addLog('Flash complete! Sending completion signal...');
       await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
 
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      status = await dfuGetStatus(device, interfaceNumber);
-      addLog(`Device state after download: ${status.state}`);
+      addLog('Waiting for device to finalize...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       try {
-        await dfuDetach(device, interfaceNumber);
-        await new Promise(resolve => setTimeout(resolve, 300));
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`Device state: ${status.state} (will disconnect automatically)`);
       } catch (e) {
-        addLog('Device already disconnected (normal after DETACH)');
+        addLog('Device disconnected (flash successful!)');
       }
 
       addLog(`Releasing DFU interface ${interfaceNumber}...`);
