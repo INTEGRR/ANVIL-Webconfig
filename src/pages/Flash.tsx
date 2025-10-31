@@ -208,16 +208,11 @@ export default function Flash() {
 
         await dfuDownload(device, interfaceNumber, blockNum, chunk);
 
-        await new Promise(resolve => setTimeout(resolve, 50));
-
         status = await dfuGetStatus(device, interfaceNumber);
 
-        while (status.state === 5) {
-          if (status.pollTimeout > 0) {
-            await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
-          } else {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
+        while (status.state === 4 || status.state === 5) {
+          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 100;
+          await new Promise(resolve => setTimeout(resolve, waitTime));
           status = await dfuGetStatus(device, interfaceNumber);
         }
 
@@ -229,7 +224,7 @@ export default function Flash() {
           throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
         }
 
-        if (status.state !== 2 && status.state !== 5) {
+        if (status.state !== 2) {
           addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}`);
         }
 
