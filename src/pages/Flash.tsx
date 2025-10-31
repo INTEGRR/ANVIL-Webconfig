@@ -267,23 +267,7 @@ export default function Flash() {
       await dfuSetAddress(device, interfaceNumber, startAddress);
 
       status = await dfuGetStatus(device, interfaceNumber);
-      let pollAttempts = 0;
-      while ((status.state === 4 || status.state === 5) && pollAttempts < 100) {
-        const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 100;
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        status = await dfuGetStatus(device, interfaceNumber);
-        pollAttempts++;
-      }
-
-      if (status.state === 10) {
-        throw new Error('Failed to set address - device rejected command');
-      }
-
-      if (status.state !== 2) {
-        throw new Error(`Device not ready after SET_ADDRESS (state: ${status.state})`);
-      }
-
-      addLog(`Address set successfully (device ready)`);
+      addLog(`Address set successfully (state: ${status.state})`);
 
       const transferSize = 2048;
       const totalBlocks = Math.ceil(data.length / transferSize);
@@ -304,6 +288,10 @@ export default function Flash() {
         while (pollAttempts < maxPollAttempts) {
           status = await dfuGetStatus(device, interfaceNumber);
 
+          if (status.state === 5) {
+            break;
+          }
+
           if (status.state === 10) {
             const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
                                  'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
@@ -312,12 +300,8 @@ export default function Flash() {
             throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
           }
 
-          if (status.state === 2) {
-            break;
-          }
-
-          if (status.state === 5 || status.state === 4) {
-            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 100;
+          if (status.state === 4) {
+            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
             await new Promise(resolve => setTimeout(resolve, waitTime));
           } else {
             addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}, continuing...`);
