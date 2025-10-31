@@ -1,6 +1,6 @@
 #include QMK_KEYBOARD_H
 #include "raw_hid.h"
-#include "eeconfig.h"
+#include <avr/eeprom.h>
 
 // EEPROM address for storing RGB settings
 #define EECONFIG_RGB_LEDMAP (uint8_t*)32
