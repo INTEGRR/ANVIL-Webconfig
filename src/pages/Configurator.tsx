@@ -67,28 +67,41 @@ export default function Configurator() {
 
   const generateThumbnail = async (): Promise<string | null> => {
     try {
-      const keyboardElement = document.querySelector('.keyboard-layout-container');
+      const keyboardElement = document.querySelector('.keyboard-layout-container svg');
       if (!keyboardElement) return null;
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
+      const svgRect = keyboardElement.getBoundingClientRect();
       canvas.width = 800;
       canvas.height = 300;
 
       ctx.fillStyle = '#2A3B3C';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      const viewBox = keyboardElement.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 1000, 400];
+      const [vbX, vbY, vbWidth, vbHeight] = viewBox;
+
+      const scaleX = canvas.width / vbWidth;
+      const scaleY = canvas.height / vbHeight;
+      const scale = Math.min(scaleX, scaleY) * 0.9;
+
+      const offsetX = (canvas.width - vbWidth * scale) / 2;
+      const offsetY = (canvas.height - vbHeight * scale) / 2;
+
       const svgElements = keyboardElement.querySelectorAll('rect[data-key-index]');
       svgElements.forEach((rect) => {
         const index = parseInt(rect.getAttribute('data-key-index') || '0');
         const [h, s, v] = keyColors[index] || [0, 0, 0];
 
-        const x = parseFloat(rect.getAttribute('x') || '0') * 0.8;
-        const y = parseFloat(rect.getAttribute('y') || '0') * 0.8;
-        const width = parseFloat(rect.getAttribute('width') || '0') * 0.8;
-        const height = parseFloat(rect.getAttribute('height') || '0') * 0.8;
+        if (v === 0 && s === 0) return;
+
+        const x = (parseFloat(rect.getAttribute('x') || '0') - vbX) * scale + offsetX;
+        const y = (parseFloat(rect.getAttribute('y') || '0') - vbY) * scale + offsetY;
+        const width = parseFloat(rect.getAttribute('width') || '0') * scale;
+        const height = parseFloat(rect.getAttribute('height') || '0') * scale;
 
         const hue = (h / 255) * 360;
         const saturation = (s / 255) * 100;

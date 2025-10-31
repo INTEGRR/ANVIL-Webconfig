@@ -234,9 +234,9 @@ export default function Gallery() {
                 className="bg-brand-teal rounded-xl border border-brand-sage/20 overflow-hidden hover:border-brand-beige/50 transition-colors"
               >
                 <Link to={`/preset/${preset.id}`} className="block">
-                  <div className="aspect-video bg-brand-teal/60 flex items-center justify-center">
+                  <div className="aspect-video bg-brand-brown flex items-center justify-center overflow-hidden">
                     {preset.thumbnail_url ? (
-                      <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-cover" />
+                      <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-contain" />
                     ) : (
                       <div className="text-brand-sage">No preview</div>
                     )}
