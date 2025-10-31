@@ -144,7 +144,13 @@ export default function Flash() {
       if (status.state === 10) {
         addLog('Clearing DFU error state...');
         await dfuClearStatus(device, interfaceNumber);
+        await new Promise(resolve => setTimeout(resolve, 100));
         status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`DFU state after clear: ${status.state}`);
+
+        if (status.state === 10) {
+          throw new Error('Device stuck in error state. Please disconnect, press BOOT0, and reconnect.');
+        }
       }
 
       const transferSize = 2048;
@@ -339,11 +345,16 @@ export default function Flash() {
           const alternate = iface.alternates[0];
 
           if (alternate.interfaceClass === 0xFE && alternate.interfaceSubclass === 0x01) {
-            addLog(`  ✓ Detected DFU interface`);
+            addLog(`  ✓ Detected DFU interface (Class: 0x${alternate.interfaceClass.toString(16)}, Subclass: 0x${alternate.interfaceSubclass.toString(16)})`);
             isDfuMode = true;
             selectedInterface = iface.interfaceNumber;
             selectedAlternate = 0;
             break;
+          } else if (alternate.interfaceClass === 0x03) {
+            addLog(`  ⚠ WARNING: Found HID interface (Class: 0x03) - This is NORMAL FIRMWARE MODE, not bootloader!`);
+            addLog(`  You need to enter DFU bootloader mode. Disconnect and reconnect with BOOT0 pressed.`);
+          } else {
+            addLog(`  Interface Class: 0x${alternate.interfaceClass.toString(16)}, Subclass: 0x${alternate.interfaceSubclass.toString(16)}`);
           }
 
           for (let altIdx = 0; altIdx < iface.alternates.length; altIdx++) {
@@ -478,17 +489,24 @@ export default function Flash() {
           </p>
         </div>
 
-        <div className="bg-brand-blue/10 border border-brand-blue/30 rounded-lg p-4 mb-6">
+        <div className="bg-amber-500/20 border-l-4 border-amber-500 rounded-lg p-4 mb-6">
           <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-brand-blue flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-brand-blue">
-              <p className="font-semibold mb-2">Before you start:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>This feature requires Chrome, Edge, or Opera browser</li>
-                <li>Put your keyboard in bootloader mode (usually hold reset button or press Boot + Reset)</li>
-                <li>Make sure you have the correct firmware file for your keyboard</li>
-                <li>Flashing incorrect firmware may brick your device</li>
-              </ul>
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-200 mb-2">Critical: STM32 Bootloader Requirements</p>
+              <div className="text-brand-sage space-y-2">
+                <p className="font-medium text-white">Your keyboard MUST be in DFU bootloader mode:</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li><strong className="text-white">How to enter DFU mode:</strong></li>
+                  <li className="ml-4">1. Disconnect USB cable</li>
+                  <li className="ml-4">2. Press and HOLD the BOOT0 button (or BOOT button)</li>
+                  <li className="ml-4">3. While holding BOOT0, connect USB cable</li>
+                  <li className="ml-4">4. Release BOOT0 after 2 seconds</li>
+                  <li className="ml-4">5. Device should appear as "STM32 BOOTLOADER"</li>
+                </ul>
+                <p className="text-amber-200 font-medium mt-3">⚠️ Normal firmware mode (with HID/RAW) CANNOT flash firmware!</p>
+                <p className="text-xs mt-2">If you see "Interface Class: 0x03" in logs, you're in normal mode, not bootloader.</p>
+              </div>
             </div>
           </div>
         </div>
