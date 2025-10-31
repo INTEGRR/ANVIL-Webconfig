@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Bluetooth, Power, Palette, Zap, Sun, Keyboard, Save, Upload, Download } from 'lucide-react';
+import { Bluetooth, Power, Palette, Zap, Sun, Keyboard, Save, Upload, Download, ImageIcon } from 'lucide-react';
 import KeyboardLayout from './components/KeyboardLayout';
+import KeyboardVisualizer from './components/KeyboardVisualizer';
 
 interface KeyboardStatus {
   connected: boolean;
@@ -57,6 +58,7 @@ function App() {
   const [pickerHSV, setPickerHSV] = useState({ h: 0, s: 255, v: 220 });
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState<any[]>([]);
+  const [useVisualizer, setUseVisualizer] = useState(true);
 
   useEffect(() => {
     setSavedPresets(getPresets());
@@ -430,13 +432,26 @@ function App() {
             </div>
 
             <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
-              <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Keyboard className="w-6 h-6 text-brand-beige" />
-                Per-Key RGB Control
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold flex items-center gap-3">
+                  <Keyboard className="w-6 h-6 text-brand-beige" />
+                  Per-Key RGB Control
+                </h2>
+                <button
+                  onClick={() => setUseVisualizer(!useVisualizer)}
+                  className="flex items-center gap-2 bg-brand-teal/60 hover:bg-brand-teal/40 px-4 py-2 rounded-lg transition-colors border border-brand-sage/20"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  {useVisualizer ? 'Grid View' : 'Photo View'}
+                </button>
+              </div>
 
               <div className="mb-6 overflow-x-auto">
-                <KeyboardLayout onKeyClick={handleKeyClick} keyColors={keyColorStrings} />
+                {useVisualizer ? (
+                  <KeyboardVisualizer onKeyClick={handleKeyClick} keyColors={keyColorStrings} />
+                ) : (
+                  <KeyboardLayout onKeyClick={handleKeyClick} keyColors={keyColorStrings} />
+                )}
               </div>
 
               {selectedKey !== null && (
