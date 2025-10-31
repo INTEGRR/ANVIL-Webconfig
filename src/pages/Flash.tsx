@@ -342,29 +342,8 @@ export default function Flash() {
       addLog('Flash complete! Sending completion signal...');
       await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
 
-      addLog('Waiting for device to finalize...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      try {
-        status = await dfuGetStatus(device, interfaceNumber);
-        addLog(`Device state: ${status.state} (will disconnect automatically)`);
-      } catch (e) {
-        addLog('Device disconnected (flash successful!)');
-      }
-
-      addLog(`Releasing DFU interface ${interfaceNumber}...`);
-      try {
-        await device.releaseInterface(interfaceNumber);
-      } catch (e) {
-        addLog('Device already disconnected (normal after LEAVE)');
-      }
-
-      addLog('Closing device connection...');
-      try {
-        await device.close();
-      } catch (e) {
-        addLog('Device already closed (normal after reboot)');
-      }
+      addLog('Device entering MANIFEST mode...');
+      addLog('DO NOT unplug your keyboard - it will reboot automatically!');
 
       setStatus({
         type: 'success',
