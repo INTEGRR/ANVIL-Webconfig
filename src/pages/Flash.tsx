@@ -217,26 +217,51 @@ export default function Flash() {
         status = await dfuGetStatus(device, interfaceNumber);
         addLog(`Erase initiated, state: ${status.state}, pollTimeout: ${status.pollTimeout}ms`);
 
-        while (status.state === 4 || status.state === 5) {
-          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 1000;
-          addLog(`Waiting ${waitTime}ms for erase to complete...`);
+        let eraseAttempts = 0;
+        const maxEraseAttempts = 50;
+
+        while ((status.state === 4 || status.state === 5) && eraseAttempts < maxEraseAttempts) {
+          const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 500;
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          status = await dfuGetStatus(device, interfaceNumber);
-          addLog(`Erase status check: state ${status.state}`);
+
+          try {
+            status = await dfuGetStatus(device, interfaceNumber);
+            if (eraseAttempts % 5 === 0) {
+              addLog(`Erase in progress... (state ${status.state}, ${eraseAttempts * waitTime / 1000}s elapsed)`);
+            }
+          } catch (pollError) {
+            addLog(`\u26a0 Device not responding during erase (this can be normal for some bootloaders)`);
+            addLog('Waiting for device to complete erase and reconnect...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            throw pollError;
+          }
+
+          eraseAttempts++;
+        }
+
+        if (eraseAttempts >= maxEraseAttempts) {
+          throw new Error('Erase timeout - device may require manual reset');
         }
 
         if (status.state === 2) {
-          addLog('✓ Mass erase completed successfully');
+          addLog('\u2713 Mass erase completed successfully');
         } else if (status.state === 10) {
-          addLog('⚠ Mass erase not supported by this bootloader, continuing anyway...');
+          addLog('\u26a0 Mass erase not supported by this bootloader, continuing anyway...');
           await dfuClearStatus(device, interfaceNumber);
           await new Promise(resolve => setTimeout(resolve, 100));
         } else {
-          addLog(`⚠ Unexpected state ${status.state} after erase, continuing anyway...`);
+          addLog(`\u26a0 Unexpected state ${status.state} after erase, continuing anyway...`);
         }
       } catch (eraseError) {
-        addLog('⚠ Mass erase command failed (might not be supported), continuing with direct flash...');
+        addLog('\u26a0 Mass erase failed or not supported. This bootloader may auto-erase during write.');
+        addLog('Continuing with direct flash (bootloader will handle erase)...');
         console.warn('Erase error:', eraseError);
+
+        try {
+          await dfuClearStatus(device, interfaceNumber);
+        } catch (clearError) {
+          addLog('Could not clear status, device may have reset');
+        }
       }
 
       const transferSize = 2048;
