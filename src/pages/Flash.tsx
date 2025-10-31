@@ -300,10 +300,6 @@ export default function Flash() {
         while (pollAttempts < maxPollAttempts) {
           status = await dfuGetStatus(device, interfaceNumber);
 
-          if (status.state === 5) {
-            break;
-          }
-
           if (status.state === 10) {
             const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
                                  'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
@@ -312,8 +308,12 @@ export default function Flash() {
             throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
           }
 
-          if (status.state === 4) {
-            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+          if (status.state === 2) {
+            break;
+          }
+
+          if (status.state === 5 || status.state === 4) {
+            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 100;
             await new Promise(resolve => setTimeout(resolve, waitTime));
           } else {
             addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}, continuing...`);
