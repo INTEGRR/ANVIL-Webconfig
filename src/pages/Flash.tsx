@@ -180,15 +180,24 @@ export default function Flash() {
         }
       }
 
-      const flashAddress = 0x08000000;
-      addLog(`Setting flash address to 0x${flashAddress.toString(16)}...`);
-      await dfuSetAddress(device, interfaceNumber, flashAddress);
-      await waitForDfuIdle(device, interfaceNumber);
-      addLog('Flash address set successfully');
+      if (status.state !== 2) {
+        addLog('Aborting any pending operation...');
+        await device.controlTransferOut({
+          requestType: 'class',
+          recipient: 'interface',
+          request: DFU_COMMANDS.ABORT,
+          value: 0,
+          index: interfaceNumber,
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`State after abort: ${status.state}`);
+      }
 
       const transferSize = 2048;
       const totalBlocks = Math.ceil(data.length / transferSize);
       addLog(`Starting DFU download: ${totalBlocks} blocks of ${transferSize} bytes`);
+      addLog('Note: Trying direct download without set address (some bootloaders auto-detect)');
 
       setStatus({ type: 'flashing', message: 'Flashing firmware via DFU...' });
 
@@ -197,9 +206,32 @@ export default function Flash() {
         const end = Math.min(start + transferSize, data.length);
         const chunk = data.slice(start, end);
 
-        await dfuDownload(device, interfaceNumber, blockNum + 2, chunk);
+        await dfuDownload(device, interfaceNumber, blockNum, chunk);
 
-        await waitForDfuIdle(device, interfaceNumber);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        status = await dfuGetStatus(device, interfaceNumber);
+
+        while (status.state === 5) {
+          if (status.pollTimeout > 0) {
+            await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          status = await dfuGetStatus(device, interfaceNumber);
+        }
+
+        if (status.state === 10) {
+          const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
+                               'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
+                               'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
+          const statusName = statusNames[status.status] || `Unknown(${status.status})`;
+          throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
+        }
+
+        if (status.state !== 2 && status.state !== 5) {
+          addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}`);
+        }
 
         const currentProgress = Math.round(((blockNum + 1) / totalBlocks) * 100);
         setProgress(currentProgress);
@@ -209,7 +241,7 @@ export default function Flash() {
         });
 
         if (blockNum % 10 === 0 || blockNum === totalBlocks - 1) {
-          addLog(`Block ${blockNum + 1}/${totalBlocks} transferred (${chunk.length} bytes)`);
+          addLog(`Block ${blockNum + 1}/${totalBlocks} transferred (${chunk.length} bytes, state: ${status.state})`);
         }
       }
 
