@@ -237,9 +237,11 @@ function App() {
   };
 
   const savePreset = (name: string) => {
+    // Deep clone to ensure independent copies
+    const colorsCopy = keyColors.map(color => ({ h: color.h, s: color.s, v: color.v }));
     const preset = {
       name,
-      colors: keyColors,
+      colors: colorsCopy,
       timestamp: Date.now(),
     };
     const presets = JSON.parse(localStorage.getItem('rgbPresets') || '[]');
@@ -250,10 +252,11 @@ function App() {
   };
 
   const loadPreset = async (presetColors: KeyColor[]) => {
-    // Ensure all 85 keys are present
-    const fullColors = Array.from({ length: 85 }, (_, i) =>
-      presetColors[i] || { h: 0, s: 255, v: 220 }
-    );
+    // Ensure all 85 keys are present with deep clone
+    const fullColors = Array.from({ length: 85 }, (_, i) => {
+      const color = presetColors[i] || { h: 0, s: 255, v: 220 };
+      return { h: color.h, s: color.s, v: color.v };
+    });
     setKeyColors(fullColors);
     if (device) {
       await uploadBulkColors(fullColors);
@@ -272,8 +275,10 @@ function App() {
   };
 
   const exportConfig = () => {
+    // Deep clone to ensure clean export
+    const colorsCopy = keyColors.map(color => ({ h: color.h, s: color.s, v: color.v }));
     const config = {
-      keyColors,
+      keyColors: colorsCopy,
       status,
       timestamp: Date.now(),
     };
@@ -294,10 +299,11 @@ function App() {
       try {
         const config = JSON.parse(e.target?.result as string);
         if (config.keyColors) {
-          // Ensure all 85 keys are present
-          const fullColors = Array.from({ length: 85 }, (_, i) =>
-            config.keyColors[i] || { h: 0, s: 255, v: 220 }
-          );
+          // Ensure all 85 keys are present with deep clone
+          const fullColors = Array.from({ length: 85 }, (_, i) => {
+            const color = config.keyColors[i] || { h: 0, s: 255, v: 220 };
+            return { h: color.h, s: color.s, v: color.v };
+          });
           setKeyColors(fullColors);
           if (device) {
             await uploadBulkColors(fullColors);
