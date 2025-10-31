@@ -233,7 +233,7 @@ export default function Flash() {
         while (pollAttempts < maxPollAttempts) {
           status = await dfuGetStatus(device, interfaceNumber);
 
-          if (status.state === 2) {
+          if (status.state === 5) {
             break;
           }
 
@@ -245,7 +245,7 @@ export default function Flash() {
             throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
           }
 
-          if (status.state === 4 || status.state === 5) {
+          if (status.state === 4) {
             const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
             await new Promise(resolve => setTimeout(resolve, waitTime));
           } else {
