@@ -108,21 +108,48 @@ export default function Flash() {
     );
   };
 
-  const waitForDfuIdle = async (device: USBDevice, interfaceNumber: number) => {
+  const dfuSetAddress = async (device: USBDevice, interfaceNumber: number, address: number) => {
+    const cmd = new Uint8Array(5);
+    cmd[0] = 0x21;
+    cmd[1] = address & 0xff;
+    cmd[2] = (address >> 8) & 0xff;
+    cmd[3] = (address >> 16) & 0xff;
+    cmd[4] = (address >> 24) & 0xff;
+
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: 0,
+        index: interfaceNumber,
+      },
+      cmd
+    );
+  };
+
+  const waitForDfuIdle = async (device: USBDevice, interfaceNumber: number, allowBusy = false) => {
     let attempts = 0;
     while (attempts < 100) {
       const status = await dfuGetStatus(device, interfaceNumber);
 
       if (status.state === 2) {
-        return;
+        return status;
       }
 
       if (status.state === 5) {
+        if (allowBusy) {
+          return status;
+        }
         if (status.pollTimeout > 0) {
           await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
         }
       } else if (status.state === 10) {
-        throw new Error('DFU Error state detected');
+        const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
+                             'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
+                             'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
+        const statusName = statusNames[status.status] || `Unknown(${status.status})`;
+        throw new Error(`DFU Error: ${statusName} (state: ${status.state}, status: ${status.status})`);
       }
 
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -153,6 +180,12 @@ export default function Flash() {
         }
       }
 
+      const flashAddress = 0x08000000;
+      addLog(`Setting flash address to 0x${flashAddress.toString(16)}...`);
+      await dfuSetAddress(device, interfaceNumber, flashAddress);
+      await waitForDfuIdle(device, interfaceNumber);
+      addLog('Flash address set successfully');
+
       const transferSize = 2048;
       const totalBlocks = Math.ceil(data.length / transferSize);
       addLog(`Starting DFU download: ${totalBlocks} blocks of ${transferSize} bytes`);
@@ -164,7 +197,7 @@ export default function Flash() {
         const end = Math.min(start + transferSize, data.length);
         const chunk = data.slice(start, end);
 
-        await dfuDownload(device, interfaceNumber, blockNum, chunk);
+        await dfuDownload(device, interfaceNumber, blockNum + 2, chunk);
 
         await waitForDfuIdle(device, interfaceNumber);
 
