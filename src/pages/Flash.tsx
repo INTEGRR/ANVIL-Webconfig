@@ -6,6 +6,35 @@ interface FlashStatus {
   message: string;
 }
 
+const DFU_COMMANDS = {
+  DETACH: 0x00,
+  DNLOAD: 0x01,
+  UPLOAD: 0x02,
+  GETSTATUS: 0x03,
+  CLRSTATUS: 0x04,
+  GETSTATE: 0x05,
+  ABORT: 0x06,
+};
+
+const DFU_STATUS = {
+  OK: 0x00,
+  errTARGET: 0x01,
+  errFILE: 0x02,
+  errWRITE: 0x03,
+  errERASE: 0x04,
+  errCHECK_ERASED: 0x05,
+  errPROG: 0x06,
+  errVERIFY: 0x07,
+  errADDRESS: 0x08,
+  errNOTDONE: 0x09,
+  errFIRMWARE: 0x0a,
+  errVENDOR: 0x0b,
+  errUSBR: 0x0c,
+  errPOR: 0x0d,
+  errUNKNOWN: 0x0e,
+  errSTALLEDPKT: 0x0f,
+};
+
 const PRESET_FIRMWARES = [
   {
     name: 'Per-Key EEPROM Save',
@@ -31,6 +60,141 @@ export default function Flash() {
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+  };
+
+  const dfuGetStatus = async (device: USBDevice, interfaceNumber: number) => {
+    const result = await device.controlTransferIn(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.GETSTATUS,
+        value: 0,
+        index: interfaceNumber,
+      },
+      6
+    );
+
+    if (result.data && result.data.byteLength >= 6) {
+      const status = result.data.getUint8(0);
+      const pollTimeout = result.data.getUint8(1) | (result.data.getUint8(2) << 8) | (result.data.getUint8(3) << 16);
+      const state = result.data.getUint8(4);
+      return { status, pollTimeout, state };
+    }
+    throw new Error('Invalid DFU status response');
+  };
+
+  const dfuClearStatus = async (device: USBDevice, interfaceNumber: number) => {
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.CLRSTATUS,
+        value: 0,
+        index: interfaceNumber,
+      }
+    );
+  };
+
+  const dfuDownload = async (device: USBDevice, interfaceNumber: number, blockNum: number, data: Uint8Array) => {
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: blockNum,
+        index: interfaceNumber,
+      },
+      data
+    );
+  };
+
+  const waitForDfuIdle = async (device: USBDevice, interfaceNumber: number) => {
+    let attempts = 0;
+    while (attempts < 100) {
+      const status = await dfuGetStatus(device, interfaceNumber);
+
+      if (status.state === 2) {
+        return;
+      }
+
+      if (status.state === 5) {
+        if (status.pollTimeout > 0) {
+          await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
+        }
+      } else if (status.state === 10) {
+        throw new Error('DFU Error state detected');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      attempts++;
+    }
+    throw new Error('Timeout waiting for DFU idle state');
+  };
+
+  const flashFirmwareDfu = async (device: USBDevice, data: Uint8Array, interfaceNumber: number) => {
+    try {
+      addLog(`Claiming DFU interface ${interfaceNumber}...`);
+      await device.claimInterface(interfaceNumber);
+      addLog('DFU interface claimed');
+
+      addLog('Checking DFU status...');
+      let status = await dfuGetStatus(device, interfaceNumber);
+      addLog(`Initial DFU state: ${status.state}, status: ${status.status}`);
+
+      if (status.state === 10) {
+        addLog('Clearing DFU error state...');
+        await dfuClearStatus(device, interfaceNumber);
+        status = await dfuGetStatus(device, interfaceNumber);
+      }
+
+      const transferSize = 2048;
+      const totalBlocks = Math.ceil(data.length / transferSize);
+      addLog(`Starting DFU download: ${totalBlocks} blocks of ${transferSize} bytes`);
+
+      setStatus({ type: 'flashing', message: 'Flashing firmware via DFU...' });
+
+      for (let blockNum = 0; blockNum < totalBlocks; blockNum++) {
+        const start = blockNum * transferSize;
+        const end = Math.min(start + transferSize, data.length);
+        const chunk = data.slice(start, end);
+
+        await dfuDownload(device, interfaceNumber, blockNum, chunk);
+
+        await waitForDfuIdle(device, interfaceNumber);
+
+        const currentProgress = Math.round(((blockNum + 1) / totalBlocks) * 100);
+        setProgress(currentProgress);
+        setStatus({
+          type: 'flashing',
+          message: `Flashing: ${currentProgress}%`,
+        });
+
+        if (blockNum % 10 === 0 || blockNum === totalBlocks - 1) {
+          addLog(`Block ${blockNum + 1}/${totalBlocks} transferred (${chunk.length} bytes)`);
+        }
+      }
+
+      addLog('Sending DFU completion signal...');
+      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      addLog(`Releasing DFU interface ${interfaceNumber}...`);
+      await device.releaseInterface(interfaceNumber);
+      addLog('Closing device...');
+      await device.close();
+
+      setStatus({
+        type: 'success',
+        message: 'Firmware flashed successfully! Your keyboard will reboot shortly.',
+      });
+      setProgress(100);
+      addLog('DFU flash completed successfully!');
+      setDevice(null);
+    } catch (error: any) {
+      console.error('DFU flash error:', error);
+      addLog(`DFU ERROR: ${error.message}`);
+      throw error;
+    }
   };
 
   const checkWebUSBSupport = () => {
@@ -162,35 +326,54 @@ export default function Flash() {
         addLog(`Using active configuration: ${device.configuration.configurationValue}`);
       }
 
-      addLog('Detecting available interfaces and endpoints...');
+      addLog('Detecting device protocol...');
       let outEndpoint: number | null = null;
       let selectedInterface: number | null = null;
       let selectedAlternate: number | null = null;
+      let isDfuMode = false;
 
       for (const iface of device.configuration!.interfaces) {
         addLog(`Checking Interface ${iface.interfaceNumber}...`);
 
-        for (let altIdx = 0; altIdx < iface.alternates.length; altIdx++) {
-          const alternate = iface.alternates[altIdx];
-          addLog(`  Alternate ${altIdx}: ${alternate.endpoints.length} endpoints`);
+        if (iface.alternates.length > 0) {
+          const alternate = iface.alternates[0];
 
-          for (const ep of alternate.endpoints) {
-            const direction = ep.direction === 'out' ? 'OUT' : 'IN';
-            addLog(`    Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
+          if (alternate.interfaceClass === 0xFE && alternate.interfaceSubclass === 0x01) {
+            addLog(`  ✓ Detected DFU interface`);
+            isDfuMode = true;
+            selectedInterface = iface.interfaceNumber;
+            selectedAlternate = 0;
+            break;
+          }
 
-            if (ep.direction === 'out' && outEndpoint === null) {
-              outEndpoint = ep.endpointNumber;
-              selectedInterface = iface.interfaceNumber;
-              selectedAlternate = altIdx;
-              addLog(`    ✓ Found OUT endpoint!`);
+          for (let altIdx = 0; altIdx < iface.alternates.length; altIdx++) {
+            const alt = iface.alternates[altIdx];
+            addLog(`  Alternate ${altIdx}: ${alt.endpoints.length} endpoints`);
+
+            for (const ep of alt.endpoints) {
+              const direction = ep.direction === 'out' ? 'OUT' : 'IN';
+              addLog(`    Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
+
+              if (ep.direction === 'out' && outEndpoint === null) {
+                outEndpoint = ep.endpointNumber;
+                selectedInterface = iface.interfaceNumber;
+                selectedAlternate = altIdx;
+                addLog(`    ✓ Found OUT endpoint!`);
+              }
             }
           }
         }
       }
 
-      if (outEndpoint === null || selectedInterface === null) {
-        addLog('ERROR: No OUT endpoint found in any interface!');
-        throw new Error('No OUT endpoint available on this device');
+      if (!isDfuMode && (outEndpoint === null || selectedInterface === null)) {
+        addLog('ERROR: No compatible interface found!');
+        throw new Error('Device is not in a compatible mode. Please ensure it is in bootloader/DFU mode.');
+      }
+
+      if (isDfuMode) {
+        addLog('Using DFU protocol (control transfers)');
+        await flashFirmwareDfu(device, data, selectedInterface!);
+        return;
       }
 
       addLog(`Using Interface ${selectedInterface}, OUT endpoint: ${outEndpoint}`);
