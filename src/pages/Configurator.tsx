@@ -6,6 +6,7 @@ import { Save, Download, Upload, Usb } from 'lucide-react';
 import KeyboardLayout from '../components/KeyboardLayout';
 import RGBControls from '../components/RGBControls';
 import { DEFAULT_COLORS } from '../data/keyboardLayout';
+import { hsvToHex } from '../utils/colorUtils';
 
 export default function Configurator() {
   const { user } = useAuth();
@@ -103,10 +104,8 @@ export default function Configurator() {
         const width = parseFloat(rect.getAttribute('width') || '0') * scale;
         const height = parseFloat(rect.getAttribute('height') || '0') * scale;
 
-        const hue = (h / 255) * 360;
-        const saturation = (s / 255) * 100;
-        const value = (v / 255) * 100;
-        ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${value}%)`;
+        const hexColor = hsvToHex(h, s, v);
+        ctx.fillStyle = hexColor;
         ctx.fillRect(x, y, width, height);
       });
 
