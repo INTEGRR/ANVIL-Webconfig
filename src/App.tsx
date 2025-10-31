@@ -291,43 +291,43 @@ function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
+    <div className="min-h-screen bg-brand-brown text-white p-8">
       <div className="max-w-4xl mx-auto">
         <header className="mb-12 text-center">
-          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-brand-beige to-brand-teal bg-clip-text text-transparent">
             Anvil Native RGB Control
           </h1>
-          <p className="text-slate-400">Configure your keyboard lighting in real-time</p>
+          <p className="text-brand-sage">Configure your keyboard lighting in real-time</p>
         </header>
 
         {!status.connected ? (
-          <div className="bg-slate-800 rounded-2xl p-12 text-center shadow-2xl border border-slate-700">
-            <Bluetooth className="w-16 h-16 mx-auto mb-6 text-blue-400" />
+          <div className="bg-brand-teal rounded-2xl p-12 text-center shadow-2xl border border-brand-sage/20">
+            <Bluetooth className="w-16 h-16 mx-auto mb-6 text-brand-beige" />
             <h2 className="text-2xl font-semibold mb-4">Connect Your Anvil Native</h2>
-            <p className="text-slate-400 mb-8 max-w-md mx-auto">
+            <p className="text-brand-sage mb-8 max-w-md mx-auto">
               Make sure your keyboard is connected via USB and you've flashed the firmware with RAW_HID enabled.
             </p>
             <button
               onClick={connectKeyboard}
-              className="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-blue-500/50"
+              className="bg-brand-beige hover:bg-brand-beige/90 px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg hover:shadow-brand-beige/30"
             >
               Connect Keyboard
             </button>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold flex items-center gap-3">
-                  <Power className="w-6 h-6 text-green-400" />
+                  <Power className="w-6 h-6 text-brand-beige" />
                   Status
                 </h2>
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-slate-400">RGB Lighting</span>
+                  <span className="text-sm text-brand-sage">RGB Lighting</span>
                   <button
                     onClick={toggleRGB}
                     className={`relative w-14 h-8 rounded-full transition-colors ${
-                      status.enabled ? 'bg-green-500' : 'bg-slate-600'
+                      status.enabled ? 'bg-brand-beige' : 'bg-brand-sage'
                     }`}
                   >
                     <div
@@ -340,15 +340,15 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Palette className="w-6 h-6 text-cyan-400" />
+                <Palette className="w-6 h-6 text-brand-beige" />
                 Color
               </h2>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-3 text-slate-300">
+                  <label className="block text-sm font-medium mb-3 text-brand-blue">
                     Hue: {status.hue}
                   </label>
                   <input
@@ -372,7 +372,7 @@ function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-3 text-slate-300">
+                  <label className="block text-sm font-medium mb-3 text-brand-blue">
                     Saturation: {status.saturation}
                   </label>
                   <input
@@ -387,14 +387,14 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Sun className="w-6 h-6 text-yellow-400" />
+                <Sun className="w-6 h-6 text-brand-beige" />
                 Brightness
               </h2>
 
               <div>
-                <label className="block text-sm font-medium mb-3 text-slate-300">
+                <label className="block text-sm font-medium mb-3 text-brand-blue">
                   Level: {status.brightness}
                 </label>
                 <input
@@ -408,14 +408,14 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Zap className="w-6 h-6 text-orange-400" />
+                <Zap className="w-6 h-6 text-brand-beige" />
                 Effect Speed
               </h2>
 
               <div>
-                <label className="block text-sm font-medium mb-3 text-slate-300">
+                <label className="block text-sm font-medium mb-3 text-brand-blue">
                   Speed: {status.speed}
                 </label>
                 <input
@@ -429,9 +429,9 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Keyboard className="w-6 h-6 text-green-400" />
+                <Keyboard className="w-6 h-6 text-brand-beige" />
                 Per-Key RGB Control
               </h2>
 
@@ -440,14 +440,14 @@ function App() {
               </div>
 
               {selectedKey !== null && (
-                <div className="bg-slate-700 rounded-xl p-4 space-y-4">
-                  <h3 className="text-lg font-semibold text-cyan-400">
+                <div className="bg-brand-teal/60 rounded-xl p-4 space-y-4 border border-brand-sage/20">
+                  <h3 className="text-lg font-semibold text-brand-beige">
                     Key {selectedKey} Selected
                   </h3>
 
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium mb-2 text-slate-300">
+                      <label className="block text-sm font-medium mb-2 text-brand-blue">
                         Hue: {pickerHSV.h}
                       </label>
                       <input
@@ -471,7 +471,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2 text-slate-300">
+                      <label className="block text-sm font-medium mb-2 text-brand-blue">
                         Saturation: {pickerHSV.s}
                       </label>
                       <input
@@ -485,7 +485,7 @@ function App() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2 text-slate-300">
+                      <label className="block text-sm font-medium mb-2 text-brand-blue">
                         Brightness: {pickerHSV.v}
                       </label>
                       <input
@@ -500,7 +500,7 @@ function App() {
 
                     <button
                       onClick={applyColorToKey}
-                      className="w-full bg-cyan-600 hover:bg-cyan-700 py-3 rounded-lg font-semibold transition-colors"
+                      className="w-full bg-brand-beige hover:bg-brand-beige/90 py-3 rounded-lg font-semibold transition-colors"
                     >
                       Apply Color to Key {selectedKey}
                     </button>
@@ -509,9 +509,9 @@ function App() {
               )}
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-                <Save className="w-6 h-6 text-yellow-400" />
+                <Save className="w-6 h-6 text-brand-beige" />
                 Presets & Configuration
               </h2>
 
@@ -522,11 +522,11 @@ function App() {
                     placeholder="Preset name..."
                     value={presetName}
                     onChange={(e) => setPresetName(e.target.value)}
-                    className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-cyan-400 outline-none"
+                    className="flex-1 bg-brand-teal/60 text-white px-4 py-2 rounded-lg border border-brand-sage/30 focus:border-brand-beige outline-none placeholder:text-brand-sage"
                   />
                   <button
                     onClick={() => presetName && savePreset(presetName)}
-                    className="bg-yellow-600 hover:bg-yellow-700 px-6 py-2 rounded-lg font-semibold transition-colors"
+                    className="bg-brand-beige hover:bg-brand-beige/90 px-6 py-2 rounded-lg font-semibold transition-colors"
                   >
                     Save Preset
                   </button>
@@ -535,12 +535,12 @@ function App() {
                 <div className="flex gap-3">
                   <button
                     onClick={exportConfig}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 bg-brand-teal/60 hover:bg-brand-teal/40 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 border border-brand-sage/20"
                   >
                     <Download className="w-5 h-5" />
                     Export Config
                   </button>
-                  <label className="flex-1 bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                  <label className="flex-1 bg-brand-teal/60 hover:bg-brand-teal/40 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer border border-brand-sage/20">
                     <Upload className="w-5 h-5" />
                     Import Config
                     <input
@@ -554,24 +554,24 @@ function App() {
 
                 {savedPresets.length > 0 && (
                   <div className="mt-4">
-                    <h3 className="text-lg font-semibold mb-3 text-slate-300">Saved Presets</h3>
+                    <h3 className="text-lg font-semibold mb-3 text-brand-blue">Saved Presets</h3>
                     <div className="space-y-2">
                       {savedPresets.map((preset, index) => (
                         <div
                           key={index}
-                          className="bg-slate-700 rounded-lg p-3 flex items-center justify-between"
+                          className="bg-brand-teal/60 rounded-lg p-3 flex items-center justify-between border border-brand-sage/20"
                         >
                           <span className="text-white font-medium">{preset.name}</span>
                           <div className="flex gap-2">
                             <button
                               onClick={() => loadPreset(preset.colors)}
-                              className="bg-cyan-600 hover:bg-cyan-700 px-4 py-1 rounded text-sm font-medium transition-colors"
+                              className="bg-brand-beige hover:bg-brand-beige/90 px-4 py-1 rounded text-sm font-medium transition-colors"
                             >
                               Load
                             </button>
                             <button
                               onClick={() => deletePreset(index)}
-                              className="bg-red-600 hover:bg-red-700 px-4 py-1 rounded text-sm font-medium transition-colors"
+                              className="bg-brand-sage hover:bg-brand-sage/80 px-4 py-1 rounded text-sm font-medium transition-colors"
                             >
                               Delete
                             </button>
@@ -584,7 +584,7 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
+            <div className="bg-brand-teal rounded-2xl p-6 shadow-xl border border-brand-sage/20">
               <h2 className="text-2xl font-semibold mb-6">RGB Effects</h2>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -594,8 +594,8 @@ function App() {
                     onClick={() => setRGBMode(mode.id)}
                     className={`p-4 rounded-lg font-medium transition-all ${
                       status.mode === mode.id
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        ? 'bg-brand-beige text-white shadow-lg shadow-brand-beige/30'
+                        : 'bg-brand-teal/60 text-brand-blue hover:bg-brand-teal/40 border border-brand-sage/20'
                     }`}
                   >
                     {mode.name}

@@ -12,7 +12,7 @@ function Key({ index, label, width = 1, color, onClick }: KeyProps) {
   return (
     <button
       onClick={() => onClick(index)}
-      className="h-12 rounded border-2 border-slate-600 hover:border-cyan-400 transition-all font-mono text-xs flex items-center justify-center"
+      className="h-12 rounded border-2 border-brand-sage/40 hover:border-brand-beige transition-all font-mono text-xs flex items-center justify-center"
       style={{
         width: `${width * 3}rem`,
         backgroundColor: color,
@@ -137,7 +137,7 @@ export default function KeyboardLayout({ onKeyClick, keyColors }: KeyboardLayout
   ];
 
   return (
-    <div className="inline-block bg-slate-800 p-6 rounded-2xl border border-slate-700">
+    <div className="inline-block bg-brand-teal/60 p-6 rounded-2xl border border-brand-sage/30">
       <div className="space-y-2">
         {isoLayout.map((row, rowIndex) => (
           <div key={rowIndex} className="flex gap-1">
@@ -147,7 +147,7 @@ export default function KeyboardLayout({ onKeyClick, keyColors }: KeyboardLayout
                 index={key.index}
                 label={key.label}
                 width={key.width}
-                color={keyColors[key.index] || '#334155'}
+                color={keyColors[key.index] || '#25384A'}
                 onClick={onKeyClick}
               />
             ))}
