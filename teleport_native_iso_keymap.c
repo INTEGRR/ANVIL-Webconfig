@@ -1,5 +1,9 @@
 #include QMK_KEYBOARD_H
 #include "raw_hid.h"
+#include "eeconfig.h"
+
+// EEPROM address for storing RGB settings
+#define EECONFIG_RGB_LEDMAP (uint8_t*)32
 
 // Per-Key RGB Configuration
 // Edit these arrays to customize each key's color
@@ -155,6 +159,21 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 };
 
+// Save LED map to EEPROM
+void save_ledmap_to_eeprom(void) {
+    eeprom_update_block(ledmap, EECONFIG_RGB_LEDMAP, sizeof(ledmap));
+}
+
+// Load LED map from EEPROM
+void load_ledmap_from_eeprom(void) {
+    eeprom_read_block(ledmap, EECONFIG_RGB_LEDMAP, sizeof(ledmap));
+}
+
+// Initialize keyboard - load settings from EEPROM
+void keyboard_post_init_user(void) {
+    load_ledmap_from_eeprom();
+}
+
 // RGB Matrix indicator function - applies per-key colors
 bool rgb_matrix_indicators_user(void) {
     if (rgb_matrix_get_flags() == LED_FLAG_NONE) {
@@ -219,13 +238,16 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 uint8_t v = data[4];
 
                 if (key_index < RGB_MATRIX_LED_COUNT) {
-                    // Store the color permanently in RAM
+                    // Store the color in RAM
                     ledmap[key_index][0] = h;
                     ledmap[key_index][1] = s;
                     ledmap[key_index][2] = v;
 
                     // Enable per-key mode
                     use_per_key_colors = true;
+
+                    // Save to EEPROM
+                    save_ledmap_to_eeprom();
                 }
             }
             break;
@@ -250,6 +272,9 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 }
 
                 use_per_key_colors = true;
+
+                // Save to EEPROM after bulk update
+                save_ledmap_to_eeprom();
             }
             break;
 
@@ -276,6 +301,20 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                     raw_hid_send(response, 32);
                 }
             }
+            break;
+
+        case 0x40: // Save current settings to EEPROM
+            save_ledmap_to_eeprom();
+            response[0] = 0x40;
+            response[1] = 0x01; // Success
+            raw_hid_send(response, 32);
+            break;
+
+        case 0x41: // Load settings from EEPROM
+            load_ledmap_from_eeprom();
+            response[0] = 0x41;
+            response[1] = 0x01; // Success
+            raw_hid_send(response, 32);
             break;
     }
 }
