@@ -349,7 +349,9 @@ export default function Flash() {
       addLog('All blocks transferred successfully!');
 
       addLog('Sending zero-length DNLOAD to signal completion...');
-      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
+      const finalBlockNum = totalBlocks + 2;
+      await dfuDownload(device, interfaceNumber, finalBlockNum, new Uint8Array(0));
+      addLog(`Zero-length DNLOAD sent with block number ${finalBlockNum}`);
 
       addLog('Polling device status for manifestation...');
       let manifestAttempts = 0;
