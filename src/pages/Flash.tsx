@@ -346,21 +346,29 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete! Sending completion signal...');
-      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
+      addLog('Flash complete!');
+      addLog('Waiting for device to finish writing...');
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      addLog('Waiting for device to process...');
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      addLog('Checking final status...');
       try {
-        await dfuDetach(device, interfaceNumber);
-        addLog('DETACH command sent successfully');
-      } catch (error: any) {
-        addLog(`Note: DETACH command failed (${error.message}) - this is sometimes normal`);
+        const finalStatus = await dfuGetStatus(device, interfaceNumber);
+        addLog(`Final state: ${finalStatus.state}`);
+      } catch (e: any) {
+        addLog(`Status check failed: ${e.message}`);
       }
 
-      addLog('Device will reboot into application mode...');
-      addLog('Please wait 3 seconds, then manually reset if needed');
+      addLog('Sending DETACH to exit bootloader...');
+      try {
+        await dfuDetach(device, interfaceNumber);
+        addLog('✓ DETACH sent - device should reboot now');
+      } catch (error: any) {
+        addLog(`DETACH failed: ${error.message} - You may need to manually reset`);
+      }
+
+      addLog('Waiting 2 seconds for reboot...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      addLog('If keyboard is not working, press the RESET button once');
 
       setStatus({
         type: 'success',
