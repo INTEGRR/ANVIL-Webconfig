@@ -6,8 +6,51 @@ interface FlashStatus {
   message: string;
 }
 
+const DFU_COMMANDS = {
+  DETACH: 0x00,
+  DNLOAD: 0x01,
+  UPLOAD: 0x02,
+  GETSTATUS: 0x03,
+  CLRSTATUS: 0x04,
+  GETSTATE: 0x05,
+  ABORT: 0x06,
+};
+
+const DFU_STATUS = {
+  OK: 0x00,
+  errTARGET: 0x01,
+  errFILE: 0x02,
+  errWRITE: 0x03,
+  errERASE: 0x04,
+  errCHECK_ERASED: 0x05,
+  errPROG: 0x06,
+  errVERIFY: 0x07,
+  errADDRESS: 0x08,
+  errNOTDONE: 0x09,
+  errFIRMWARE: 0x0a,
+  errVENDOR: 0x0b,
+  errUSBR: 0x0c,
+  errPOR: 0x0d,
+  errUNKNOWN: 0x0e,
+  errSTALLEDPKT: 0x0f,
+};
+
+const PRESET_FIRMWARES = [
+  {
+    name: 'Per-Key EEPROM Save',
+    filename: 'teleport_native_iso_per_Key_eeprom_save.bin',
+    description: 'Firmware with per-key EEPROM save functionality'
+  },
+  {
+    name: 'Performance Mode',
+    filename: 'teleport_native_iso_perfmode.bin',
+    description: 'High-performance optimized firmware'
+  }
+];
+
 export default function Flash() {
   const [firmwareFile, setFirmwareFile] = useState<File | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [status, setStatus] = useState<FlashStatus>({ type: 'idle', message: '' });
   const [device, setDevice] = useState<USBDevice | null>(null);
   const [progress, setProgress] = useState(0);
@@ -17,6 +60,239 @@ export default function Flash() {
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+  };
+
+  const dfuGetStatus = async (device: USBDevice, interfaceNumber: number) => {
+    const result = await device.controlTransferIn(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.GETSTATUS,
+        value: 0,
+        index: interfaceNumber,
+      },
+      6
+    );
+
+    if (result.data && result.data.byteLength >= 6) {
+      const status = result.data.getUint8(0);
+      const pollTimeout = result.data.getUint8(1) | (result.data.getUint8(2) << 8) | (result.data.getUint8(3) << 16);
+      const state = result.data.getUint8(4);
+      return { status, pollTimeout, state };
+    }
+    throw new Error('Invalid DFU status response');
+  };
+
+  const dfuClearStatus = async (device: USBDevice, interfaceNumber: number) => {
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.CLRSTATUS,
+        value: 0,
+        index: interfaceNumber,
+      }
+    );
+  };
+
+  const dfuDownload = async (device: USBDevice, interfaceNumber: number, blockNum: number, data: Uint8Array) => {
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: blockNum,
+        index: interfaceNumber,
+      },
+      data
+    );
+  };
+
+  const dfuSetAddress = async (device: USBDevice, interfaceNumber: number, address: number) => {
+    const cmd = new Uint8Array(5);
+    cmd[0] = 0x21;
+    cmd[1] = address & 0xff;
+    cmd[2] = (address >> 8) & 0xff;
+    cmd[3] = (address >> 16) & 0xff;
+    cmd[4] = (address >> 24) & 0xff;
+
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: 0,
+        index: interfaceNumber,
+      },
+      cmd
+    );
+  };
+
+  const dfuMassErase = async (device: USBDevice, interfaceNumber: number) => {
+    const cmd = new Uint8Array(1);
+    cmd[0] = 0x41;
+
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: 0,
+        index: interfaceNumber,
+      },
+      cmd
+    );
+  };
+
+  const waitForDfuIdle = async (device: USBDevice, interfaceNumber: number, allowBusy = false) => {
+    let attempts = 0;
+    while (attempts < 100) {
+      const status = await dfuGetStatus(device, interfaceNumber);
+
+      if (status.state === 2) {
+        return status;
+      }
+
+      if (status.state === 5) {
+        if (allowBusy) {
+          return status;
+        }
+        if (status.pollTimeout > 0) {
+          await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
+        }
+      } else if (status.state === 10) {
+        const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
+                             'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
+                             'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
+        const statusName = statusNames[status.status] || `Unknown(${status.status})`;
+        throw new Error(`DFU Error: ${statusName} (state: ${status.state}, status: ${status.status})`);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      attempts++;
+    }
+    throw new Error('Timeout waiting for DFU idle state');
+  };
+
+  const flashFirmwareDfu = async (device: USBDevice, data: Uint8Array, interfaceNumber: number) => {
+    try {
+      addLog(`Claiming DFU interface ${interfaceNumber}...`);
+      await device.claimInterface(interfaceNumber);
+      addLog('DFU interface claimed');
+
+      addLog('Checking DFU status...');
+      let status = await dfuGetStatus(device, interfaceNumber);
+      addLog(`Initial DFU state: ${status.state}, status: ${status.status}`);
+
+      if (status.state === 10) {
+        addLog('Clearing DFU error state...');
+        await dfuClearStatus(device, interfaceNumber);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`DFU state after clear: ${status.state}`);
+
+        if (status.state === 10) {
+          throw new Error('Device stuck in error state. Please disconnect, press BOOT0, and reconnect.');
+        }
+      }
+
+      if (status.state !== 2) {
+        addLog('Aborting any pending operation...');
+        await device.controlTransferOut({
+          requestType: 'class',
+          recipient: 'interface',
+          request: DFU_COMMANDS.ABORT,
+          value: 0,
+          index: interfaceNumber,
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`State after abort: ${status.state}`);
+      }
+
+      addLog('Skipping mass erase (causes device disconnect on this bootloader)');
+      addLog('STM32 bootloader will auto-erase sectors during write operation');
+
+      const transferSize = 2048;
+      const totalBlocks = Math.ceil(data.length / transferSize);
+      addLog(`Starting DFU download: ${totalBlocks} blocks of ${transferSize} bytes`);
+      addLog('Note: Trying direct download without set address (some bootloaders auto-detect)');
+
+      setStatus({ type: 'flashing', message: 'Flashing firmware via DFU...' });
+
+      for (let blockNum = 0; blockNum < totalBlocks; blockNum++) {
+        const start = blockNum * transferSize;
+        const end = Math.min(start + transferSize, data.length);
+        const chunk = data.slice(start, end);
+
+        await dfuDownload(device, interfaceNumber, blockNum, chunk);
+
+        let pollAttempts = 0;
+        const maxPollAttempts = 100;
+
+        while (pollAttempts < maxPollAttempts) {
+          status = await dfuGetStatus(device, interfaceNumber);
+
+          if (status.state === 5) {
+            break;
+          }
+
+          if (status.state === 10) {
+            const statusNames = ['OK', 'errTARGET', 'errFILE', 'errWRITE', 'errERASE', 'errCHECK_ERASED',
+                                 'errPROG', 'errVERIFY', 'errADDRESS', 'errNOTDONE', 'errFIRMWARE',
+                                 'errVENDOR', 'errUSBR', 'errPOR', 'errUNKNOWN', 'errSTALLEDPKT'];
+            const statusName = statusNames[status.status] || `Unknown(${status.status})`;
+            throw new Error(`DFU Error at block ${blockNum}: ${statusName}`);
+          }
+
+          if (status.state === 4) {
+            const waitTime = status.pollTimeout > 0 ? status.pollTimeout : 50;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          } else {
+            addLog(`Warning: Unexpected state ${status.state} after block ${blockNum}, continuing...`);
+            break;
+          }
+
+          pollAttempts++;
+        }
+
+        if (pollAttempts >= maxPollAttempts) {
+          throw new Error(`Timeout waiting for device ready at block ${blockNum}`);
+        }
+
+        const currentProgress = Math.round(((blockNum + 1) / totalBlocks) * 100);
+        setProgress(currentProgress);
+        setStatus({
+          type: 'flashing',
+          message: `Flashing: ${currentProgress}%`,
+        });
+
+        if (blockNum % 10 === 0 || blockNum === totalBlocks - 1) {
+          addLog(`Block ${blockNum + 1}/${totalBlocks} transferred (${chunk.length} bytes, state: ${status.state})`);
+        }
+      }
+
+      addLog('Sending DFU completion signal...');
+      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      addLog(`Releasing DFU interface ${interfaceNumber}...`);
+      await device.releaseInterface(interfaceNumber);
+      addLog('Closing device...');
+      await device.close();
+
+      setStatus({
+        type: 'success',
+        message: 'Firmware flashed successfully! Your keyboard will reboot shortly.',
+      });
+      setProgress(100);
+      addLog('DFU flash completed successfully!');
+      setDevice(null);
+    } catch (error: any) {
+      console.error('DFU flash error:', error);
+      addLog(`DFU ERROR: ${error.message}`);
+      throw error;
+    }
   };
 
   const checkWebUSBSupport = () => {
@@ -45,11 +321,34 @@ export default function Flash() {
       return;
     }
 
+    setSelectedPreset('');
     setFirmwareFile(file);
     setStatus({
       type: 'idle',
       message: `File selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
     });
+  };
+
+  const handlePresetSelect = async (filename: string) => {
+    try {
+      const response = await fetch(`/${filename}`);
+      if (!response.ok) throw new Error('Failed to load firmware');
+
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: 'application/octet-stream' });
+
+      setSelectedPreset(filename);
+      setFirmwareFile(file);
+      setStatus({
+        type: 'idle',
+        message: `Preset selected: ${filename} (${(file.size / 1024).toFixed(2)} KB)`,
+      });
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: 'Failed to load preset firmware. Please try uploading manually.',
+      });
+    }
   };
 
   const connectToDevice = async () => {
@@ -125,31 +424,73 @@ export default function Flash() {
         addLog(`Using active configuration: ${device.configuration.configurationValue}`);
       }
 
-      addLog('Detecting available endpoints...');
-      const iface = device.configuration!.interfaces[0];
-      const alternate = iface.alternate;
-      addLog(`Interface ${iface.interfaceNumber} has ${alternate.endpoints.length} endpoints`);
-
+      addLog('Detecting device protocol...');
       let outEndpoint: number | null = null;
-      alternate.endpoints.forEach((ep) => {
-        const direction = ep.direction === 'out' ? 'OUT' : 'IN';
-        addLog(`  Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
-        if (ep.direction === 'out') {
-          outEndpoint = ep.endpointNumber;
-        }
-      });
+      let selectedInterface: number | null = null;
+      let selectedAlternate: number | null = null;
+      let isDfuMode = false;
 
-      if (outEndpoint === null) {
-        addLog('ERROR: No OUT endpoint found!');
-        throw new Error('No OUT endpoint available on this device');
+      for (const iface of device.configuration!.interfaces) {
+        addLog(`Checking Interface ${iface.interfaceNumber}...`);
+
+        if (iface.alternates.length > 0) {
+          const alternate = iface.alternates[0];
+
+          if (alternate.interfaceClass === 0xFE && alternate.interfaceSubclass === 0x01) {
+            addLog(`  ✓ Detected DFU interface (Class: 0x${alternate.interfaceClass.toString(16)}, Subclass: 0x${alternate.interfaceSubclass.toString(16)})`);
+            isDfuMode = true;
+            selectedInterface = iface.interfaceNumber;
+            selectedAlternate = 0;
+            break;
+          } else if (alternate.interfaceClass === 0x03) {
+            addLog(`  ⚠ WARNING: Found HID interface (Class: 0x03) - This is NORMAL FIRMWARE MODE, not bootloader!`);
+            addLog(`  You need to enter DFU bootloader mode. Disconnect and reconnect with BOOT0 pressed.`);
+          } else {
+            addLog(`  Interface Class: 0x${alternate.interfaceClass.toString(16)}, Subclass: 0x${alternate.interfaceSubclass.toString(16)}`);
+          }
+
+          for (let altIdx = 0; altIdx < iface.alternates.length; altIdx++) {
+            const alt = iface.alternates[altIdx];
+            addLog(`  Alternate ${altIdx}: ${alt.endpoints.length} endpoints`);
+
+            for (const ep of alt.endpoints) {
+              const direction = ep.direction === 'out' ? 'OUT' : 'IN';
+              addLog(`    Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
+
+              if (ep.direction === 'out' && outEndpoint === null) {
+                outEndpoint = ep.endpointNumber;
+                selectedInterface = iface.interfaceNumber;
+                selectedAlternate = altIdx;
+                addLog(`    ✓ Found OUT endpoint!`);
+              }
+            }
+          }
+        }
       }
 
-      addLog(`Using OUT endpoint: ${outEndpoint}`);
+      if (!isDfuMode && (outEndpoint === null || selectedInterface === null)) {
+        addLog('ERROR: No compatible interface found!');
+        throw new Error('Device is not in a compatible mode. Please ensure it is in bootloader/DFU mode.');
+      }
 
-      addLog('Claiming interface 0...');
+      if (isDfuMode) {
+        addLog('Using DFU protocol (control transfers)');
+        await flashFirmwareDfu(device, data, selectedInterface!);
+        return;
+      }
+
+      addLog(`Using Interface ${selectedInterface}, OUT endpoint: ${outEndpoint}`);
+
+      addLog(`Claiming interface ${selectedInterface}...`);
       try {
-        await device.claimInterface(0);
+        await device.claimInterface(selectedInterface);
         addLog('Interface claimed successfully');
+
+        if (selectedAlternate !== null && selectedAlternate !== 0) {
+          addLog(`Selecting alternate setting ${selectedAlternate}...`);
+          await device.selectAlternateInterface(selectedInterface, selectedAlternate);
+          addLog('Alternate setting selected');
+        }
       } catch (error: any) {
         addLog(`ERROR claiming interface: ${error.message}`);
         throw error;
@@ -192,8 +533,8 @@ export default function Flash() {
       }
 
       addLog(`Transfer complete: ${successfulTransfers} successful, ${failedTransfers} failed`);
-      addLog('Releasing interface...');
-      await device.releaseInterface(0);
+      addLog(`Releasing interface ${selectedInterface}...`);
+      await device.releaseInterface(selectedInterface);
       addLog('Closing device...');
       await device.close();
 
@@ -240,17 +581,24 @@ export default function Flash() {
           </p>
         </div>
 
-        <div className="bg-brand-blue/10 border border-brand-blue/30 rounded-lg p-4 mb-6">
+        <div className="bg-amber-500/20 border-l-4 border-amber-500 rounded-lg p-4 mb-6">
           <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-brand-blue flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-brand-blue">
-              <p className="font-semibold mb-2">Before you start:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>This feature requires Chrome, Edge, or Opera browser</li>
-                <li>Put your keyboard in bootloader mode (usually hold reset button or press Boot + Reset)</li>
-                <li>Make sure you have the correct firmware file for your keyboard</li>
-                <li>Flashing incorrect firmware may brick your device</li>
-              </ul>
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-200 mb-2">Critical: STM32 Bootloader Requirements</p>
+              <div className="text-brand-sage space-y-2">
+                <p className="font-medium text-white">Your keyboard MUST be in DFU bootloader mode:</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li><strong className="text-white">How to enter DFU mode:</strong></li>
+                  <li className="ml-4">1. Disconnect USB cable</li>
+                  <li className="ml-4">2. Press and HOLD the BOOT0 button (or BOOT button)</li>
+                  <li className="ml-4">3. While holding BOOT0, connect USB cable</li>
+                  <li className="ml-4">4. Release BOOT0 after 2 seconds</li>
+                  <li className="ml-4">5. Device should appear as "STM32 BOOTLOADER"</li>
+                </ul>
+                <p className="text-amber-200 font-medium mt-3">⚠️ Normal firmware mode (with HID/RAW) CANNOT flash firmware!</p>
+                <p className="text-xs mt-2">If you see "Interface Class: 0x03" in logs, you're in normal mode, not bootloader.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -263,6 +611,36 @@ export default function Flash() {
             </div>
 
             <div className="space-y-4">
+              <div className="bg-brand-brown/30 rounded-lg p-4">
+                <label className="block text-white font-medium mb-2">Preset Firmwares</label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handlePresetSelect(e.target.value)}
+                  className="w-full bg-brand-teal/60 text-white px-4 py-3 rounded-lg border border-brand-sage/30 focus:border-brand-beige focus:outline-none"
+                >
+                  <option value="">Select a preset firmware...</option>
+                  {PRESET_FIRMWARES.map((preset) => (
+                    <option key={preset.filename} value={preset.filename}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedPreset && (
+                  <p className="text-brand-sage text-sm mt-2">
+                    {PRESET_FIRMWARES.find(p => p.filename === selectedPreset)?.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-brand-sage/30"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-brand-teal text-brand-sage">OR</span>
+                </div>
+              </div>
+
               <div>
                 <input
                   ref={fileInputRef}
@@ -276,7 +654,7 @@ export default function Flash() {
                   className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white px-6 py-4 rounded-lg border-2 border-dashed border-brand-sage/30 hover:border-brand-beige/50 transition-colors flex flex-col items-center gap-2"
                 >
                   <Upload className="w-8 h-8 text-brand-beige" />
-                  <span className="font-medium">Click to upload firmware</span>
+                  <span className="font-medium">Upload custom firmware</span>
                   <span className="text-sm text-brand-sage">Supported: .bin, .hex, .uf2</span>
                 </button>
               </div>
