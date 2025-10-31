@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bluetooth, Power, Palette, Zap, Sun, Keyboard, Save, Upload, Download, ImageIcon } from 'lucide-react';
 import KeyboardLayout from './components/KeyboardLayout';
 import KeyboardVisualizer from './components/KeyboardVisualizer';
+import KeyboardVisualizer3D from './components/KeyboardVisualizer3D';
 
 interface KeyboardStatus {
   connected: boolean;
@@ -58,7 +59,7 @@ function App() {
   const [pickerHSV, setPickerHSV] = useState({ h: 0, s: 255, v: 220 });
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState<any[]>([]);
-  const [useVisualizer, setUseVisualizer] = useState(true);
+  const [visualizerMode, setVisualizerMode] = useState<'3d' | 'photo' | 'layout'>('3d');
 
   useEffect(() => {
     setSavedPresets(getPresets());
@@ -477,17 +478,44 @@ function App() {
                   <Keyboard className="w-6 h-6 text-brand-beige" />
                   Per-Key RGB Control
                 </h2>
-                <button
-                  onClick={() => setUseVisualizer(!useVisualizer)}
-                  className="flex items-center gap-2 bg-brand-teal/60 hover:bg-brand-teal/40 px-4 py-2 rounded-lg transition-colors border border-brand-sage/20"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  {useVisualizer ? 'Grid View' : 'Photo View'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setVisualizerMode('3d')}
+                    className={`px-4 py-2 rounded-lg transition-colors border ${
+                      visualizerMode === '3d'
+                        ? 'bg-brand-beige text-brand-brown'
+                        : 'bg-brand-teal/60 hover:bg-brand-teal/40 border-brand-sage/20'
+                    }`}
+                  >
+                    3D View
+                  </button>
+                  <button
+                    onClick={() => setVisualizerMode('photo')}
+                    className={`px-4 py-2 rounded-lg transition-colors border ${
+                      visualizerMode === 'photo'
+                        ? 'bg-brand-beige text-brand-brown'
+                        : 'bg-brand-teal/60 hover:bg-brand-teal/40 border-brand-sage/20'
+                    }`}
+                  >
+                    Photo
+                  </button>
+                  <button
+                    onClick={() => setVisualizerMode('layout')}
+                    className={`px-4 py-2 rounded-lg transition-colors border ${
+                      visualizerMode === 'layout'
+                        ? 'bg-brand-beige text-brand-brown'
+                        : 'bg-brand-teal/60 hover:bg-brand-teal/40 border-brand-sage/20'
+                    }`}
+                  >
+                    Grid
+                  </button>
+                </div>
               </div>
 
-              <div className="mb-6 overflow-x-auto">
-                {useVisualizer ? (
+              <div className="mb-6 overflow-x-auto flex justify-center">
+                {visualizerMode === '3d' ? (
+                  <KeyboardVisualizer3D onKeyClick={handleKeyClick} keyColors={keyColorStrings} selectedKeys={selectedKeys} />
+                ) : visualizerMode === 'photo' ? (
                   <KeyboardVisualizer onKeyClick={handleKeyClick} keyColors={keyColorStrings} selectedKeys={selectedKeys} />
                 ) : (
                   <KeyboardLayout onKeyClick={handleKeyClick} keyColors={keyColorStrings} selectedKeys={selectedKeys} />
