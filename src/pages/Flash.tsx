@@ -108,6 +108,41 @@ export default function Flash() {
     );
   };
 
+  const dfuUpload = async (device: USBDevice, interfaceNumber: number, blockNum: number, length: number): Promise<Uint8Array> => {
+    const result = await device.controlTransferIn(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.UPLOAD,
+        value: blockNum,
+        index: interfaceNumber,
+      },
+      length
+    );
+
+    if (result.data) {
+      return new Uint8Array(result.data.buffer);
+    }
+    throw new Error('No data received from UPLOAD');
+  };
+
+  const calculateCRC32 = (data: Uint8Array): number => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[i] = c;
+    }
+
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < data.length; i++) {
+      crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  };
+
   const dfuSetAddress = async (device: USBDevice, interfaceNumber: number, address: number) => {
     const cmd = new Uint8Array(5);
     cmd[0] = 0x21;
@@ -314,7 +349,40 @@ export default function Flash() {
         }
       }
 
-      addLog('Flash complete! Exiting bootloader...');
+      addLog('Flash complete! Verifying firmware...');
+
+      const originalCRC = calculateCRC32(firmware);
+      addLog(`Original firmware CRC32: 0x${originalCRC.toString(16).toUpperCase()}`);
+
+      await dfuSetAddress(device, interfaceNumber, FLASH_BASE_ADDRESS);
+      await dfuWaitIdle(device, interfaceNumber);
+
+      addLog('Reading back firmware for verification...');
+      const readbackData = new Uint8Array(firmware.length);
+      const verifyChunkSize = 2048;
+      let verifyBlockNum = 2;
+
+      for (let offset = 0; offset < firmware.length; offset += verifyChunkSize) {
+        const readLength = Math.min(verifyChunkSize, firmware.length - offset);
+        const chunk = await dfuUpload(device, interfaceNumber, verifyBlockNum, readLength);
+        readbackData.set(chunk, offset);
+        verifyBlockNum++;
+
+        if (verifyBlockNum % 10 === 0) {
+          const verifyProgress = Math.round((offset / firmware.length) * 100);
+          addLog(`Verify progress: ${verifyProgress}%`);
+        }
+      }
+
+      const readbackCRC = calculateCRC32(readbackData);
+      addLog(`Readback firmware CRC32: 0x${readbackCRC.toString(16).toUpperCase()}`);
+
+      if (originalCRC !== readbackCRC) {
+        throw new Error(`Verification failed! CRC mismatch. Expected 0x${originalCRC.toString(16)}, got 0x${readbackCRC.toString(16)}`);
+      }
+
+      addLog('✓ Verification successful! Firmware matches.');
+      addLog('Exiting bootloader...');
       await dfuLeave(device, interfaceNumber);
       await new Promise(resolve => setTimeout(resolve, 200));
 
