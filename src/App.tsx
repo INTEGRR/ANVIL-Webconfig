@@ -53,7 +53,7 @@ function App() {
 
   const [selectedKey, setSelectedKey] = useState<number | null>(null);
   const [keyColors, setKeyColors] = useState<KeyColor[]>(
-    Array(85).fill({ h: 0, s: 255, v: 220 })
+    Array.from({ length: 85 }, () => ({ h: 0, s: 255, v: 220 }))
   );
   const [pickerHSV, setPickerHSV] = useState({ h: 0, s: 255, v: 220 });
   const [presetName, setPresetName] = useState('');
