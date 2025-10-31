@@ -128,6 +128,30 @@ export default function Flash() {
     );
   };
 
+  const dfuLeave = async (device: USBDevice, interfaceNumber: number) => {
+    addLog('Sending DFU LEAVE command to exit bootloader...');
+    await device.controlTransferOut(
+      {
+        requestType: 'class',
+        recipient: 'interface',
+        request: DFU_COMMANDS.DNLOAD,
+        value: 0,
+        index: interfaceNumber,
+      },
+      new Uint8Array(0)
+    );
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const statusAfterLeave = await dfuGetStatus(device, interfaceNumber);
+    addLog(`Status after LEAVE: state=${statusAfterLeave.state}, status=${statusAfterLeave.status}`);
+
+    if (statusAfterLeave.state !== 0) {
+      addLog('Clearing status after LEAVE...');
+      await dfuClearStatus(device, interfaceNumber);
+    }
+  };
+
   const dfuMassErase = async (device: USBDevice, interfaceNumber: number) => {
     const cmd = new Uint8Array(1);
     cmd[0] = 0x41;
@@ -290,14 +314,23 @@ export default function Flash() {
         }
       }
 
-      addLog('Sending DFU completion signal...');
-      await dfuDownload(device, interfaceNumber, 0, new Uint8Array(0));
-      await new Promise(resolve => setTimeout(resolve, 100));
+      addLog('Flash complete! Exiting bootloader...');
+      await dfuLeave(device, interfaceNumber);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       addLog(`Releasing DFU interface ${interfaceNumber}...`);
-      await device.releaseInterface(interfaceNumber);
-      addLog('Closing device...');
-      await device.close();
+      try {
+        await device.releaseInterface(interfaceNumber);
+      } catch (e) {
+        addLog('Device already disconnected (normal after LEAVE)');
+      }
+
+      addLog('Closing device connection...');
+      try {
+        await device.close();
+      } catch (e) {
+        addLog('Device already closed (normal after reboot)');
+      }
 
       setStatus({
         type: 'success',
