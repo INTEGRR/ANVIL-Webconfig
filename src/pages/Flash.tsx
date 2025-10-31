@@ -11,7 +11,13 @@ export default function Flash() {
   const [status, setStatus] = useState<FlashStatus>({ type: 'idle', message: '' });
   const [device, setDevice] = useState<USBDevice | null>(null);
   const [progress, setProgress] = useState(0);
+  const [logs, setLogs] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+  };
 
   const checkWebUSBSupport = () => {
     if (!('usb' in navigator)) {
@@ -50,20 +56,41 @@ export default function Flash() {
     if (!checkWebUSBSupport()) return;
 
     try {
+      setLogs([]);
+      addLog('Requesting USB device access...');
       setStatus({ type: 'connecting', message: 'Requesting USB device access...' });
 
       const selectedDevice = await navigator.usb.requestDevice({
         filters: [],
       });
 
+      addLog(`Device selected: ${selectedDevice.productName || 'Unknown Device'}`);
+      addLog(`Vendor ID: 0x${selectedDevice.vendorId.toString(16).padStart(4, '0')}`);
+      addLog(`Product ID: 0x${selectedDevice.productId.toString(16).padStart(4, '0')}`);
+      addLog(`Manufacturer: ${selectedDevice.manufacturerName || 'Unknown'}`);
+
+      addLog('Opening device...');
       await selectedDevice.open();
+      addLog('Device opened successfully');
+
+      addLog(`Configurations available: ${selectedDevice.configurations.length}`);
+      if (selectedDevice.configuration) {
+        addLog(`Active configuration: ${selectedDevice.configuration.configurationValue}`);
+        addLog(`Interfaces available: ${selectedDevice.configuration.interfaces.length}`);
+        selectedDevice.configuration.interfaces.forEach((iface, idx) => {
+          addLog(`  Interface ${idx}: ${iface.interfaceNumber}, Endpoints: ${iface.alternate.endpoints.length}`);
+        });
+      }
+
       setDevice(selectedDevice);
       setStatus({
         type: 'success',
         message: `Connected to: ${selectedDevice.productName || 'Unknown Device'}`,
       });
+      addLog('Ready to flash!');
     } catch (error: any) {
       console.error('Connection error:', error);
+      addLog(`ERROR: ${error.message}`);
       setStatus({
         type: 'error',
         message: error.message || 'Failed to connect to device. Make sure the keyboard is in bootloader mode.',
@@ -81,28 +108,54 @@ export default function Flash() {
     }
 
     try {
+      addLog('Starting flash process...');
       setStatus({ type: 'flashing', message: 'Reading firmware file...' });
+      addLog(`Reading firmware file: ${firmwareFile.name}`);
       const arrayBuffer = await firmwareFile.arrayBuffer();
       const data = new Uint8Array(arrayBuffer);
+      addLog(`Firmware size: ${data.length} bytes`);
 
-      setStatus({ type: 'flashing', message: 'Flashing firmware...' });
+      setStatus({ type: 'flashing', message: 'Preparing device...' });
 
       if (device.configuration === null) {
+        addLog('Selecting configuration 1...');
         await device.selectConfiguration(1);
+        addLog('Configuration selected');
+      } else {
+        addLog(`Using active configuration: ${device.configuration.configurationValue}`);
       }
 
-      await device.claimInterface(0);
+      addLog('Claiming interface 0...');
+      try {
+        await device.claimInterface(0);
+        addLog('Interface claimed successfully');
+      } catch (error: any) {
+        addLog(`ERROR claiming interface: ${error.message}`);
+        throw error;
+      }
 
       const chunkSize = 64;
       const totalChunks = Math.ceil(data.length / chunkSize);
+      addLog(`Total chunks to transfer: ${totalChunks} (${chunkSize} bytes each)`);
+
+      setStatus({ type: 'flashing', message: 'Flashing firmware...' });
+      addLog('Starting data transfer...');
+
+      let successfulTransfers = 0;
+      let failedTransfers = 0;
 
       for (let i = 0; i < totalChunks; i++) {
         const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
 
         try {
-          await device.transferOut(1, chunk);
-        } catch (error) {
-          console.warn('Transfer error, continuing...', error);
+          const result = await device.transferOut(1, chunk);
+          successfulTransfers++;
+          if (i % 100 === 0) {
+            addLog(`Transferred chunk ${i + 1}/${totalChunks} (${result.bytesWritten} bytes)`);
+          }
+        } catch (error: any) {
+          failedTransfers++;
+          addLog(`WARNING: Transfer ${i + 1} failed: ${error.message}`);
         }
 
         const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
@@ -115,7 +168,10 @@ export default function Flash() {
         await new Promise(resolve => setTimeout(resolve, 10));
       }
 
+      addLog(`Transfer complete: ${successfulTransfers} successful, ${failedTransfers} failed`);
+      addLog('Releasing interface...');
       await device.releaseInterface(0);
+      addLog('Closing device...');
       await device.close();
 
       setStatus({
@@ -123,9 +179,11 @@ export default function Flash() {
         message: 'Firmware flashed successfully! Your keyboard will reboot shortly.',
       });
       setProgress(100);
+      addLog('Flash completed successfully!');
       setDevice(null);
     } catch (error: any) {
       console.error('Flash error:', error);
+      addLog(`FATAL ERROR: ${error.message}`);
       setStatus({
         type: 'error',
         message: error.message || 'Failed to flash firmware. Please try again.',
@@ -133,9 +191,12 @@ export default function Flash() {
 
       if (device) {
         try {
+          addLog('Attempting to close device after error...');
           await device.close();
-        } catch (e) {
+          addLog('Device closed');
+        } catch (e: any) {
           console.error('Error closing device:', e);
+          addLog(`Error closing device: ${e.message}`);
         }
         setDevice(null);
       }
@@ -321,6 +382,30 @@ export default function Flash() {
               </div>
             )}
           </div>
+
+          {logs.length > 0 && (
+            <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
+              <h3 className="text-lg font-semibold text-white mb-3">Flash Log</h3>
+              <div className="bg-brand-brown/50 rounded-lg p-4 font-mono text-xs max-h-64 overflow-y-auto">
+                {logs.map((log, idx) => (
+                  <div
+                    key={idx}
+                    className={`${
+                      log.includes('ERROR') || log.includes('FATAL')
+                        ? 'text-red-400'
+                        : log.includes('WARNING')
+                        ? 'text-yellow-400'
+                        : log.includes('SUCCESS') || log.includes('successfully') || log.includes('completed')
+                        ? 'text-green-400'
+                        : 'text-brand-sage'
+                    }`}
+                  >
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-8 bg-brand-teal/40 rounded-lg p-6">
