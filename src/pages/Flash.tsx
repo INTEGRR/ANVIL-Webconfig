@@ -125,6 +125,27 @@ export default function Flash() {
         addLog(`Using active configuration: ${device.configuration.configurationValue}`);
       }
 
+      addLog('Detecting available endpoints...');
+      const iface = device.configuration!.interfaces[0];
+      const alternate = iface.alternate;
+      addLog(`Interface ${iface.interfaceNumber} has ${alternate.endpoints.length} endpoints`);
+
+      let outEndpoint: number | null = null;
+      alternate.endpoints.forEach((ep) => {
+        const direction = ep.direction === 'out' ? 'OUT' : 'IN';
+        addLog(`  Endpoint ${ep.endpointNumber}: ${direction}, type: ${ep.type}`);
+        if (ep.direction === 'out') {
+          outEndpoint = ep.endpointNumber;
+        }
+      });
+
+      if (outEndpoint === null) {
+        addLog('ERROR: No OUT endpoint found!');
+        throw new Error('No OUT endpoint available on this device');
+      }
+
+      addLog(`Using OUT endpoint: ${outEndpoint}`);
+
       addLog('Claiming interface 0...');
       try {
         await device.claimInterface(0);
@@ -148,14 +169,16 @@ export default function Flash() {
         const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
 
         try {
-          const result = await device.transferOut(1, chunk);
+          const result = await device.transferOut(outEndpoint, chunk);
           successfulTransfers++;
           if (i % 100 === 0) {
             addLog(`Transferred chunk ${i + 1}/${totalChunks} (${result.bytesWritten} bytes)`);
           }
         } catch (error: any) {
           failedTransfers++;
-          addLog(`WARNING: Transfer ${i + 1} failed: ${error.message}`);
+          if (failedTransfers < 10) {
+            addLog(`WARNING: Transfer ${i + 1} failed: ${error.message}`);
+          }
         }
 
         const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
