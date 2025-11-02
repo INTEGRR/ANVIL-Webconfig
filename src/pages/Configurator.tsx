@@ -11,6 +11,7 @@ import KeycodeSelector from '../components/KeycodeSelector';
 import { DEFAULT_COLORS, KEYBOARD_LAYOUT } from '../data/keyboardLayout';
 import { hsvToHex } from '../utils/colorUtils';
 import { EffectConfig, DEFAULT_EFFECT_CONFIG } from '../types/effects';
+import { keycodeToHex } from '../utils/keycodeConverter';
 
 export default function Configurator() {
   const { user } = useAuth();
@@ -342,22 +343,22 @@ export default function Configurator() {
 
       if (mode === 0) {
         const modeData = new Uint8Array(32);
-        modeData[0] = 0x01;
+        modeData[0] = 0x50;
         modeData[1] = 0;
         await device.sendReport(0x00, modeData);
       } else {
         const modeData = new Uint8Array(32);
-        modeData[0] = 0x01;
+        modeData[0] = 0x50;
         modeData[1] = mode;
         await device.sendReport(0x00, modeData);
 
         const speedData = new Uint8Array(32);
-        speedData[0] = 0x04;
+        speedData[0] = 0x53;
         speedData[1] = effectConfig.speed;
         await device.sendReport(0x00, speedData);
 
         const brightnessData = new Uint8Array(32);
-        brightnessData[0] = 0x03;
+        brightnessData[0] = 0x52;
         brightnessData[1] = effectConfig.intensity;
         await device.sendReport(0x00, brightnessData);
       }
@@ -372,7 +373,7 @@ export default function Configurator() {
 
     try {
       const data = new Uint8Array(32);
-      data[0] = 0x20;
+      data[0] = 0x60;
       data[1] = keyIndex;
       data[2] = h;
       data[3] = s;
@@ -381,6 +382,25 @@ export default function Configurator() {
       await device.sendReport(0, data);
     } catch (error) {
       console.error('Error sending color to keyboard:', error);
+    }
+  };
+
+  const sendKeycodeToKeyboard = async (keyIndex: number, keycode: number, layer: number = 0) => {
+    if (!device || !connected) return;
+
+    try {
+      const data = new Uint8Array(32);
+      data[0] = 0x05;
+      data[1] = layer;
+      data[2] = keyIndex;
+      data[3] = (keycode >> 8) & 0xFF;
+      data[4] = keycode & 0xFF;
+
+      await device.sendReport(0, data);
+      console.log(`Sent keycode ${keycode} to key ${keyIndex} on layer ${layer}`);
+    } catch (error) {
+      console.error('Error sending keycode to keyboard:', error);
+      throw error;
     }
   };
 
@@ -399,6 +419,25 @@ export default function Configurator() {
     } catch (error) {
       console.error('Error syncing colors:', error);
       alert('Failed to sync colors to keyboard');
+    }
+  };
+
+  const syncKeymapToKeyboard = async () => {
+    if (!device || !connected) {
+      alert('Please connect to keyboard first');
+      return;
+    }
+
+    try {
+      for (let i = 0; i < keymap.length; i++) {
+        const keycodeValue = keycodeToHex(keymap[i]);
+        await sendKeycodeToKeyboard(i, keycodeValue, 0);
+        await new Promise(resolve => setTimeout(resolve, 15));
+      }
+      alert('Keymap synced to keyboard!');
+    } catch (error) {
+      console.error('Error syncing keymap:', error);
+      alert('Failed to sync keymap to keyboard');
     }
   };
 
@@ -568,6 +607,8 @@ export default function Configurator() {
             <KeymapControls
               keymapMode={keymapMode}
               onToggleMode={setKeymapMode}
+              connected={connected}
+              onSyncKeymap={syncKeymapToKeyboard}
             />
 
             <RGBControls

@@ -191,36 +191,39 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     uint8_t command = data[0];
     uint8_t response[32] = {0};
 
+    if (command <= 0x13) {
+        via_command_handler(data, length);
+        return;
+    }
+
     switch (command) {
-        case 0x01: // Set RGB mode
+        case 0x50: // Set RGB mode
             if (data[1] == 0) {
-                // Mode 0 = use per-key colors
                 use_per_key_colors = true;
             } else {
-                // Use RGB matrix effects
                 use_per_key_colors = false;
                 rgb_matrix_mode(data[1]);
             }
             break;
 
-        case 0x02: // Set HSV
+        case 0x51: // Set HSV
             rgb_matrix_sethsv(data[1], data[2], data[3]);
             break;
 
-        case 0x03: // Set brightness
+        case 0x52: // Set brightness
             rgb_matrix_sethsv(rgb_matrix_get_hue(), rgb_matrix_get_sat(), data[1]);
             break;
 
-        case 0x04: // Set speed
+        case 0x53: // Set speed
             rgb_matrix_set_speed(data[1]);
             break;
 
-        case 0x05: // Toggle RGB
+        case 0x54: // Toggle RGB
             rgb_matrix_toggle();
             break;
 
-        case 0x10: // Get status
-            response[0] = 0x10;
+        case 0x55: // Get status
+            response[0] = 0x55;
             response[1] = rgb_matrix_get_mode();
             response[2] = rgb_matrix_get_hue();
             response[3] = rgb_matrix_get_sat();
@@ -230,7 +233,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             raw_hid_send(response, 32);
             break;
 
-        case 0x20: // Set individual key color
+        case 0x60: // Set individual key color
             {
                 uint8_t key_index = data[1];
                 uint8_t h = data[2];
@@ -252,7 +255,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             }
             break;
 
-        case 0x21: // Bulk set key colors (up to 10 keys per packet)
+        case 0x61: // Bulk set key colors (up to 10 keys per packet)
             {
                 uint8_t count = data[1]; // Number of keys in this packet
                 if (count > 10) count = 10; // Safety limit
@@ -278,13 +281,13 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             }
             break;
 
-        case 0x30: // Get key colors (request range)
+        case 0x62: // Get key colors (request range)
             {
                 uint8_t start_index = data[1];
                 uint8_t count = data[2];
 
                 if (start_index < RGB_MATRIX_LED_COUNT) {
-                    response[0] = 0x30;
+                    response[0] = 0x62;
                     response[1] = start_index;
                     response[2] = count;
 
@@ -303,16 +306,16 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             }
             break;
 
-        case 0x40: // Save current settings to EEPROM
+        case 0x70: // Save current settings to EEPROM
             save_ledmap_to_eeprom();
-            response[0] = 0x40;
+            response[0] = 0x70;
             response[1] = 0x01; // Success
             raw_hid_send(response, 32);
             break;
 
-        case 0x41: // Load settings from EEPROM
+        case 0x71: // Load settings from EEPROM
             load_ledmap_from_eeprom();
-            response[0] = 0x41;
+            response[0] = 0x71;
             response[1] = 0x01; // Success
             raw_hid_send(response, 32);
             break;

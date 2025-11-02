@@ -1,11 +1,13 @@
-import { Keyboard } from 'lucide-react';
+import { Keyboard, Usb } from 'lucide-react';
 
 interface KeymapControlsProps {
   keymapMode: boolean;
   onToggleMode: (enabled: boolean) => void;
+  connected?: boolean;
+  onSyncKeymap?: () => void;
 }
 
-export default function KeymapControls({ keymapMode, onToggleMode }: KeymapControlsProps) {
+export default function KeymapControls({ keymapMode, onToggleMode, connected, onSyncKeymap }: KeymapControlsProps) {
   return (
     <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -39,6 +41,16 @@ export default function KeymapControls({ keymapMode, onToggleMode }: KeymapContr
               <span className="font-semibold">Active:</span> Click any key on the keyboard to change its keycode
             </p>
           </div>
+        )}
+
+        {connected && onSyncKeymap && (
+          <button
+            onClick={onSyncKeymap}
+            className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <Usb className="w-4 h-4" />
+            Sync Keymap to Keyboard
+          </button>
         )}
       </div>
     </div>
