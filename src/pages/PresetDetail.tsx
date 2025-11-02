@@ -11,6 +11,7 @@ interface Preset {
   thumbnail_url: string | null;
   creator_id: string;
   rgb_config: any;
+  effect_config: any;
   keymap_config: any;
   macro_config: any;
   download_count: number;
@@ -156,7 +157,14 @@ export default function PresetDetail() {
       .update({ download_count: (preset.download_count || 0) + 1 })
       .eq('id', preset.id);
 
-    navigate('/configurator', { state: { preset: preset.rgb_config } });
+    navigate('/configurator', {
+      state: {
+        preset: {
+          colors: preset.rgb_config?.colors,
+          effect: preset.effect_config
+        }
+      }
+    });
   };
 
   const handleComment = async (e: React.FormEvent) => {

@@ -5,8 +5,10 @@ import { supabase } from '../lib/supabase';
 import { Save, Download, Upload, Usb } from 'lucide-react';
 import KeyboardLayout from '../components/KeyboardLayout';
 import RGBControls from '../components/RGBControls';
+import EffectControls from '../components/EffectControls';
 import { DEFAULT_COLORS } from '../data/keyboardLayout';
 import { hsvToHex } from '../utils/colorUtils';
+import { EffectConfig, DEFAULT_EFFECT_CONFIG } from '../types/effects';
 
 export default function Configurator() {
   const { user } = useAuth();
@@ -19,12 +21,16 @@ export default function Configurator() {
   const [saving, setSaving] = useState(false);
   const [device, setDevice] = useState<any>(null);
   const [connected, setConnected] = useState(false);
+  const [effectConfig, setEffectConfig] = useState<EffectConfig>(DEFAULT_EFFECT_CONFIG);
 
   useEffect(() => {
     if (location.state?.preset) {
       const loadedPreset = location.state.preset;
       if (loadedPreset.colors && Array.isArray(loadedPreset.colors)) {
         setKeyColors(loadedPreset.colors);
+      }
+      if (loadedPreset.effect) {
+        setEffectConfig(loadedPreset.effect);
       }
     }
   }, [location.state]);
@@ -170,6 +176,7 @@ export default function Configurator() {
           creator_id: user.id,
           keyboard_model_id: keyboardModel.id,
           rgb_config: rgbConfig,
+          effect_config: effectConfig,
           thumbnail_url: thumbnail,
           visibility: 'public',
         });
@@ -192,6 +199,7 @@ export default function Configurator() {
       name: presetName || 'Untitled Preset',
       description: description,
       keyColors: keyColors,
+      effect: effectConfig,
       timestamp: new Date().toISOString(),
     };
 
@@ -216,6 +224,9 @@ export default function Configurator() {
           setKeyColors(data.keyColors);
           setPresetName(data.name || '');
           setDescription(data.description || '');
+          if (data.effect) {
+            setEffectConfig(data.effect);
+          }
           alert('Preset imported successfully!');
         } else {
           alert('Invalid preset file format');
@@ -483,6 +494,11 @@ export default function Configurator() {
               onColorChange={handleColorChange}
               onClearSelection={handleClearSelection}
               onResetColors={handleResetColors}
+            />
+
+            <EffectControls
+              effectConfig={effectConfig}
+              onEffectChange={setEffectConfig}
             />
 
             {selectedKeys.size > 0 && connected && (
