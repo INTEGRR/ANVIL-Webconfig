@@ -64,10 +64,10 @@ export class Device {
   logError: (msg: string) => void;
   logProgress: (done: number, total: number) => void;
 
-  constructor(device: USBDevice, settings: USBAlternateInterface) {
+  constructor(device: USBDevice, settings: USBAlternateInterface, intfNumber: number) {
     this.device_ = device;
     this.settings = settings;
-    this.intfNumber = settings.interfaceNumber;
+    this.intfNumber = intfNumber;
 
     this.logDebug = console.debug;
     this.logInfo = console.info;
@@ -419,7 +419,7 @@ export async function findAllDfuInterfaces(): Promise<Device[]> {
     for (const iface of device.configuration.interfaces) {
       for (const alt of iface.alternates) {
         if (alt.interfaceClass === 0xFE && alt.interfaceSubclass === 0x01) {
-          dfuDevices.push(new Device(device, alt));
+          dfuDevices.push(new Device(device, alt, iface.interfaceNumber));
         }
       }
     }
@@ -446,7 +446,7 @@ export async function requestDevice(): Promise<Device | null> {
   for (const iface of device.configuration.interfaces) {
     for (const alt of iface.alternates) {
       if (alt.interfaceClass === 0xFE && alt.interfaceSubclass === 0x01) {
-        return new Device(device, alt);
+        return new Device(device, alt, iface.interfaceNumber);
       }
     }
   }
