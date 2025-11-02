@@ -191,15 +191,15 @@ export class Device {
   }
 
   async requestOut(bRequest: number, data?: BufferSource, wValue = 0): Promise<number> {
-    const setup = {
-      requestType: 'class' as USBRequestType,
-      recipient: 'interface' as USBRecipient,
+    const setup: USBControlTransferParameters = {
+      requestType: 'class',
+      recipient: 'interface',
       request: bRequest,
       value: wValue,
       index: this.intfNumber
     };
 
-    let result;
+    let result: USBOutTransferResult;
     if (data !== undefined) {
       result = await this.device_.controlTransferOut(setup, data);
     } else {
@@ -209,13 +209,15 @@ export class Device {
   }
 
   async requestIn(bRequest: number, wLength: number, wValue = 0): Promise<DataView> {
-    const result = await this.device_.controlTransferIn({
+    const setup: USBControlTransferParameters = {
       requestType: 'class',
       recipient: 'interface',
       request: bRequest,
       value: wValue,
       index: this.intfNumber
-    }, wLength);
+    };
+
+    const result = await this.device_.controlTransferIn(setup, wLength);
 
     if (result.status === 'ok' && result.data) {
       return result.data;
