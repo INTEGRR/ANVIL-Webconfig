@@ -13,6 +13,7 @@ export default function Configurator() {
   const location = useLocation();
   const [keyColors, setKeyColors] = useState<number[][]>(DEFAULT_COLORS.map(c => [...c]));
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set());
+  const [lastSelectedKey, setLastSelectedKey] = useState<number | null>(null);
   const [presetName, setPresetName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -28,21 +29,34 @@ export default function Configurator() {
     }
   }, [location.state]);
 
-  const handleKeyClick = (index: number, shiftKey: boolean) => {
+  const handleKeyClick = (index: number, shiftKey: boolean, ctrlKey: boolean) => {
     setSelectedKeys((prev) => {
       const newSet = new Set(prev);
-      if (shiftKey) {
+
+      if (shiftKey && lastSelectedKey !== null) {
+        // Shift: Select range from last selected to current
+        const start = Math.min(lastSelectedKey, index);
+        const end = Math.max(lastSelectedKey, index);
+        for (let i = start; i <= end; i++) {
+          newSet.add(i);
+        }
+      } else if (ctrlKey) {
+        // Ctrl: Toggle individual key
         if (newSet.has(index)) {
           newSet.delete(index);
         } else {
           newSet.add(index);
         }
       } else {
+        // Normal click: Select only this key
         newSet.clear();
         newSet.add(index);
       }
+
       return newSet;
     });
+
+    setLastSelectedKey(index);
   };
 
   const handleColorChange = (h: number, s: number, v: number) => {

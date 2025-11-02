@@ -4,7 +4,7 @@ import { hsvToHex } from '../utils/colorUtils';
 interface KeyboardLayoutProps {
   keyColors: number[][];
   selectedKeys: Set<number>;
-  onKeyClick: (index: number, shiftKey: boolean) => void;
+  onKeyClick: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
 }
 
 export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: KeyboardLayoutProps) {
@@ -30,7 +30,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: 
     return (
       <g
         key={key.index}
-        onClick={(e) => onKeyClick(key.index, e.shiftKey)}
+        onClick={(e) => onKeyClick(key.index, e.shiftKey, e.ctrlKey || e.metaKey)}
         className="cursor-pointer hover:opacity-80 transition-opacity"
       >
         <rect
