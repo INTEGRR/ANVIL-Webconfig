@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle2, Zap, Info } from 'lucide-react';
-import { Device, requestDevice, constants } from '../lib/dfu';
+import '../lib/dfu';
+
+declare const dfu: any;
 
 interface LogEntry {
   type: 'info' | 'warning' | 'error' | 'success';
@@ -9,7 +11,7 @@ interface LogEntry {
 }
 
 export default function DFUFlash() {
-  const [device, setDevice] = useState<Device | null>(null);
+  const [device, setDevice] = useState<any | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -23,12 +25,18 @@ export default function DFUFlash() {
   const handleConnectDevice = async () => {
     try {
       addLog('info', 'Requesting DFU device...');
-      const dfuDevice = await requestDevice();
 
-      if (!dfuDevice) {
-        addLog('error', 'No DFU device selected or found');
+      const usbDevice = await navigator.usb.requestDevice({
+        filters: [{ classCode: 0xFE, subclassCode: 0x01 }]
+      });
+
+      const interfaces = dfu.findDeviceDfuInterfaces(usbDevice);
+      if (interfaces.length === 0) {
+        addLog('error', 'No DFU interface found');
         return;
       }
+
+      const dfuDevice = new dfu.Device(usbDevice, interfaces[0]);
 
       addLog('info', 'Opening device connection...');
       await dfuDevice.open();
@@ -36,13 +44,13 @@ export default function DFUFlash() {
       dfuDevice.logInfo = (msg: string) => addLog('info', msg);
       dfuDevice.logWarning = (msg: string) => addLog('warning', msg);
       dfuDevice.logError = (msg: string) => addLog('error', msg);
-      dfuDevice.logProgress = (done: number, total: number) => {
-        setProgress(Math.round((done / total) * 100));
+      dfuDevice.logProgress = (done: number, total?: number) => {
+        if (total) {
+          setProgress(Math.round((done / total) * 100));
+        }
       };
 
-      const transferSize = dfuDevice.properties.TransferSize || 1024;
-      addLog('success', `Device connected (Transfer size: ${transferSize} bytes)`);
-
+      addLog('success', `Device connected`);
       setDevice(dfuDevice);
     } catch (error) {
       addLog('error', `Connection failed: ${error}`);
@@ -86,12 +94,12 @@ export default function DFUFlash() {
       await device.abortToIdle();
 
       const state = await device.getState();
-      if (state !== constants.dfuIdleState) {
+      if (state !== dfu.dfuIDLE) {
         throw new Error(`Device not in idle state (state: ${state})`);
       }
 
-      const transferSize = device.properties.TransferSize || 1024;
-      const manifestationTolerant = device.properties.ManifestationTolerant || false;
+      const transferSize = 1024;
+      const manifestationTolerant = false;
 
       addLog('info', 'Starting firmware download...');
       await device.do_download(transferSize, arrayBuffer, manifestationTolerant);
@@ -129,13 +137,13 @@ export default function DFUFlash() {
       addLog('info', 'Preparing device for reading...');
       await device.abortToIdle();
 
-      const transferSize = device.properties.TransferSize || 1024;
+      const transferSize = 1024;
       const maxSize = 256 * 1024;
 
       addLog('info', 'Reading firmware from device...');
       const firmware = await device.do_upload(transferSize, maxSize);
 
-      const blob = new Blob([firmware], { type: 'application/octet-stream' });
+      const blob = firmware;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -143,7 +151,7 @@ export default function DFUFlash() {
       a.click();
       URL.revokeObjectURL(url);
 
-      addLog('success', `Firmware read successfully (${firmware.byteLength} bytes)`);
+      addLog('success', `Firmware read successfully (${firmware.size} bytes)`);
       setProgress(100);
 
     } catch (error) {
