@@ -9,6 +9,12 @@
 // EEPROM address for storing RGB settings
 #define EECONFIG_RGB_LEDMAP_ADDR 32
 
+// EEPROM address for storing keymap
+#define EECONFIG_DYNAMIC_KEYMAP_ADDR (EECONFIG_RGB_LEDMAP_ADDR + 256)
+
+// Dynamic keymap storage in RAM (Layer 0 only, 85 keys)
+uint16_t dynamic_keymap_layer0[85];
+
 // Per-Key RGB Configuration
 // Edit these arrays to customize each key's color
 
@@ -163,6 +169,32 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 };
 
+// Initialize dynamic keymap from default keymap
+void init_dynamic_keymap(void) {
+    const uint16_t default_keys[] = {
+        KC_ESC,  KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,  KC_F13,  KC_PSCR, KC_DEL,
+        KC_GRV,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_MINS, KC_EQL,  KC_BSPC, KC_PGUP,
+        KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC, KC_RBRC, KC_PGDN,
+        KC_CAPS, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT, KC_NUHS, KC_ENT,  KC_HOME,
+        KC_LSFT, KC_NUBS, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_RSFT, KC_UP,   KC_END,
+        KC_LCTL, KC_LGUI, KC_LALT, KC_SPC,  KC_RALT, MO(1),   KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT
+    };
+
+    for (uint8_t i = 0; i < 85; i++) {
+        dynamic_keymap_layer0[i] = default_keys[i];
+    }
+}
+
+// Save dynamic keymap to EEPROM
+void save_dynamic_keymap_to_eeprom(void) {
+    eeprom_update_block(dynamic_keymap_layer0, (void*)EECONFIG_DYNAMIC_KEYMAP_ADDR, sizeof(dynamic_keymap_layer0));
+}
+
+// Load dynamic keymap from EEPROM
+void load_dynamic_keymap_from_eeprom(void) {
+    eeprom_read_block(dynamic_keymap_layer0, (const void*)EECONFIG_DYNAMIC_KEYMAP_ADDR, sizeof(dynamic_keymap_layer0));
+}
+
 // Save LED map to EEPROM
 void save_ledmap_to_eeprom(void) {
     eeprom_update_block(ledmap, (void*)EECONFIG_RGB_LEDMAP_ADDR, sizeof(ledmap));
@@ -173,8 +205,30 @@ void load_ledmap_from_eeprom(void) {
     eeprom_read_block(ledmap, (const void*)EECONFIG_RGB_LEDMAP_ADDR, sizeof(ledmap));
 }
 
+// Process dynamic keymap
+uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t position) {
+    if (layer == 0) {
+        // Convert matrix position to key index (row * cols + col)
+        uint8_t key_index = position.row * MATRIX_COLS + position.col;
+        if (key_index < 85) {
+            return dynamic_keymap_layer0[key_index];
+        }
+    }
+    // Fall back to default keymap for other layers
+    return keymaps[layer][position.row][position.col];
+}
+
 // Initialize keyboard - load settings from EEPROM
 void keyboard_post_init_user(void) {
+    init_dynamic_keymap();
+
+    // Check if EEPROM has valid data, otherwise use defaults
+    uint16_t first_key;
+    eeprom_read_block(&first_key, (const void*)EECONFIG_DYNAMIC_KEYMAP_ADDR, sizeof(uint16_t));
+    if (first_key != 0xFFFF && first_key != 0x0000) {
+        load_dynamic_keymap_from_eeprom();
+    }
+
     load_ledmap_from_eeprom();
 }
 
@@ -324,6 +378,39 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             response[0] = 0x71;
             response[1] = 0x01; // Success
             raw_hid_send(response, 32);
+            break;
+
+        case 0x05: // Set keycode (layer, key_index, keycode_hi, keycode_lo)
+            {
+                uint8_t layer = data[1];
+                uint8_t key_index = data[2];
+                uint16_t keycode = (data[3] << 8) | data[4];
+
+                if (layer == 0 && key_index < 85) {
+                    dynamic_keymap_layer0[key_index] = keycode;
+                    save_dynamic_keymap_to_eeprom();
+                    response[0] = 0x05;
+                    response[1] = 0x01; // Success
+                    raw_hid_send(response, 32);
+                }
+            }
+            break;
+
+        case 0x06: // Get keycode (layer, key_index)
+            {
+                uint8_t layer = data[1];
+                uint8_t key_index = data[2];
+
+                if (layer == 0 && key_index < 85) {
+                    uint16_t keycode = dynamic_keymap_layer0[key_index];
+                    response[0] = 0x06;
+                    response[1] = layer;
+                    response[2] = key_index;
+                    response[3] = (keycode >> 8) & 0xFF;
+                    response[4] = keycode & 0xFF;
+                    raw_hid_send(response, 32);
+                }
+            }
             break;
     }
 }
