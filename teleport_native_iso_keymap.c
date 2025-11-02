@@ -2,6 +2,10 @@
 #include "raw_hid.h"
 #include "eeprom.h"
 
+#ifdef VIA_ENABLE
+    #include "via.h"
+#endif
+
 // EEPROM address for storing RGB settings
 #define EECONFIG_RGB_LEDMAP_ADDR 32
 
@@ -191,10 +195,12 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     uint8_t command = data[0];
     uint8_t response[32] = {0};
 
+#ifdef VIA_ENABLE
     if (command <= 0x13) {
         via_command_handler(data, length);
         return;
     }
+#endif
 
     switch (command) {
         case 0x50: // Set RGB mode
