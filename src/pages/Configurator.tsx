@@ -6,7 +6,9 @@ import { Save, Download, Upload, Usb } from 'lucide-react';
 import KeyboardLayout from '../components/KeyboardLayout';
 import RGBControls from '../components/RGBControls';
 import EffectControls from '../components/EffectControls';
-import { DEFAULT_COLORS } from '../data/keyboardLayout';
+import KeymapControls from '../components/KeymapControls';
+import KeycodeSelector from '../components/KeycodeSelector';
+import { DEFAULT_COLORS, KEYBOARD_LAYOUT } from '../data/keyboardLayout';
 import { hsvToHex } from '../utils/colorUtils';
 import { EffectConfig, DEFAULT_EFFECT_CONFIG } from '../types/effects';
 
@@ -22,6 +24,9 @@ export default function Configurator() {
   const [device, setDevice] = useState<any>(null);
   const [connected, setConnected] = useState(false);
   const [effectConfig, setEffectConfig] = useState<EffectConfig>(DEFAULT_EFFECT_CONFIG);
+  const [keymapMode, setKeymapMode] = useState(false);
+  const [keymap, setKeymap] = useState<string[]>(KEYBOARD_LAYOUT.map(k => k.keyCode));
+  const [selectedKeyForKeymap, setSelectedKeyForKeymap] = useState<number | null>(null);
 
   useEffect(() => {
     if (location.state?.preset) {
@@ -32,29 +37,34 @@ export default function Configurator() {
       if (loadedPreset.effect) {
         setEffectConfig(loadedPreset.effect);
       }
+      if (loadedPreset.keymap && Array.isArray(loadedPreset.keymap)) {
+        setKeymap(loadedPreset.keymap);
+      }
     }
   }, [location.state]);
 
   const handleKeyClick = (index: number, shiftKey: boolean, ctrlKey: boolean) => {
+    if (keymapMode) {
+      setSelectedKeyForKeymap(index);
+      return;
+    }
+
     setSelectedKeys((prev) => {
       const newSet = new Set(prev);
 
       if (shiftKey && lastSelectedKey !== null) {
-        // Shift: Select range from last selected to current
         const start = Math.min(lastSelectedKey, index);
         const end = Math.max(lastSelectedKey, index);
         for (let i = start; i <= end; i++) {
           newSet.add(i);
         }
       } else if (ctrlKey) {
-        // Ctrl: Toggle individual key
         if (newSet.has(index)) {
           newSet.delete(index);
         } else {
           newSet.add(index);
         }
       } else {
-        // Normal click: Select only this key
         newSet.clear();
         newSet.add(index);
       }
@@ -63,6 +73,16 @@ export default function Configurator() {
     });
 
     setLastSelectedKey(index);
+  };
+
+  const handleKeycodeSelect = (keyCode: string) => {
+    if (selectedKeyForKeymap !== null) {
+      setKeymap((prev) => {
+        const newKeymap = [...prev];
+        newKeymap[selectedKeyForKeymap] = keyCode;
+        return newKeymap;
+      });
+    }
   };
 
   const handleColorChange = (h: number, s: number, v: number) => {
@@ -168,6 +188,11 @@ export default function Configurator() {
         timestamp: new Date().toISOString(),
       };
 
+      const keymapConfig = {
+        keymap: keymap,
+        timestamp: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('presets')
         .insert({
@@ -177,6 +202,7 @@ export default function Configurator() {
           keyboard_model_id: keyboardModel.id,
           rgb_config: rgbConfig,
           effect_config: effectConfig,
+          keymap_config: keymapConfig,
           thumbnail_url: thumbnail,
           visibility: 'public',
         });
@@ -200,6 +226,7 @@ export default function Configurator() {
       description: description,
       keyColors: keyColors,
       effect: effectConfig,
+      keymap: keymap,
       timestamp: new Date().toISOString(),
     };
 
@@ -226,6 +253,9 @@ export default function Configurator() {
           setDescription(data.description || '');
           if (data.effect) {
             setEffectConfig(data.effect);
+          }
+          if (data.keymap && Array.isArray(data.keymap)) {
+            setKeymap(data.keymap);
           }
           alert('Preset imported successfully!');
         } else {
@@ -384,6 +414,8 @@ export default function Configurator() {
               keyColors={keyColors}
               selectedKeys={selectedKeys}
               onKeyClick={handleKeyClick}
+              keymap={keymap}
+              keymapMode={keymapMode}
             />
 
             <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
@@ -531,6 +563,11 @@ export default function Configurator() {
           </div>
 
           <div className="space-y-6">
+            <KeymapControls
+              keymapMode={keymapMode}
+              onToggleMode={setKeymapMode}
+            />
+
             <RGBControls
               selectedKeys={selectedKeys}
               keyColors={keyColors}
@@ -581,6 +618,14 @@ export default function Configurator() {
           </div>
         </div>
       </div>
+
+      {selectedKeyForKeymap !== null && (
+        <KeycodeSelector
+          currentKeyCode={keymap[selectedKeyForKeymap]}
+          onSelect={handleKeycodeSelect}
+          onClose={() => setSelectedKeyForKeymap(null)}
+        />
+      )}
     </div>
   );
 }

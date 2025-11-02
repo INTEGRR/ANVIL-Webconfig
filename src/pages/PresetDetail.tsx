@@ -161,7 +161,8 @@ export default function PresetDetail() {
       state: {
         preset: {
           colors: preset.rgb_config?.colors,
-          effect: preset.effect_config
+          effect: preset.effect_config,
+          keymap: preset.keymap_config?.keymap
         }
       }
     });

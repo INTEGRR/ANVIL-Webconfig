@@ -5,9 +5,11 @@ interface KeyboardLayoutProps {
   keyColors: number[][];
   selectedKeys: Set<number>;
   onKeyClick: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
+  keymap?: string[];
+  keymapMode?: boolean;
 }
 
-export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: KeyboardLayoutProps) {
+export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, keymap, keymapMode }: KeyboardLayoutProps) {
   const KEY_SIZE = 50;
   const PADDING = 10;
 
@@ -55,7 +57,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick }: 
           pointerEvents="none"
           style={{ userSelect: 'none' }}
         >
-          {key.label}
+          {keymapMode && keymap ? keymap[key.index].replace('KC_', '') : key.label}
         </text>
       </g>
     );
