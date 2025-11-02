@@ -8,6 +8,7 @@ import Configurator from './pages/Configurator';
 import MyPresets from './pages/MyPresets';
 import PresetDetail from './pages/PresetDetail';
 import Profile from './pages/Profile';
+import DFUFlash from './pages/DFUFlash';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/dfu-flash" element={<DFUFlash />} />
           </Routes>
         </div>
       </BrowserRouter>
