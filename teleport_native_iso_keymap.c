@@ -370,16 +370,17 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
         case 0x05: // Set keycode (layer, key_index, keycode_hi, keycode_lo)
             {
-                uint8_t layer = data[1];
-                uint8_t key_index = data[2];
-                uint16_t keycode = (data[3] << 8) | data[4];
-
-                if (key_index < 85) {
+                if (data[2] < 85) {
                     uint8_t row, col;
-                    linear_index_to_matrix(key_index, &row, &col);
+                    linear_index_to_matrix(data[2], &row, &col);
 
                     #ifdef VIA_ENABLE
-                    dynamic_keymap_set_keycode(layer, row, col, keycode);
+                    uint16_t keycode = (data[3] << 8) | data[4];
+                    dynamic_keymap_set_keycode(data[1], row, col, keycode);
+                    #else
+                    (void)data[1]; // Suppress unused warning
+                    (void)data[3];
+                    (void)data[4];
                     #endif
 
                     response[0] = 0x05;
@@ -391,21 +392,20 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
         case 0x06: // Get keycode (layer, key_index)
             {
-                uint8_t layer = data[1];
-                uint8_t key_index = data[2];
-
-                if (key_index < 85) {
+                if (data[2] < 85) {
                     uint8_t row, col;
-                    linear_index_to_matrix(key_index, &row, &col);
+                    linear_index_to_matrix(data[2], &row, &col);
 
                     uint16_t keycode = KC_NO;
                     #ifdef VIA_ENABLE
-                    keycode = dynamic_keymap_get_keycode(layer, row, col);
+                    keycode = dynamic_keymap_get_keycode(data[1], row, col);
+                    #else
+                    (void)data[1]; // Suppress unused warning
                     #endif
 
                     response[0] = 0x06;
-                    response[1] = layer;
-                    response[2] = key_index;
+                    response[1] = data[1];
+                    response[2] = data[2];
                     response[3] = (keycode >> 8) & 0xFF;
                     response[4] = keycode & 0xFF;
                     raw_hid_send(response, 32);
