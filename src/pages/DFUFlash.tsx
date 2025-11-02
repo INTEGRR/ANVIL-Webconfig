@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle2, Zap, Info } from 'lucide-react';
 import { dfu } from '../lib/dfu';
+import { dfuse } from '../lib/dfuse';
 
 interface LogEntry {
   type: 'info' | 'warning' | 'error' | 'success';
@@ -34,7 +35,14 @@ export default function DFUFlash() {
         return;
       }
 
-      const dfuDevice = new dfu.Device(usbDevice, interfaces[0]);
+      let dfuDevice;
+      if (interfaces[0].name && interfaces[0].name.startsWith('@')) {
+        addLog('info', 'Using DfuSe protocol (STM32)');
+        dfuDevice = new dfuse.Device(usbDevice, interfaces[0]);
+      } else {
+        addLog('info', 'Using standard DFU protocol');
+        dfuDevice = new dfu.Device(usbDevice, interfaces[0]);
+      }
 
       addLog('info', 'Opening device connection...');
       await dfuDevice.open();

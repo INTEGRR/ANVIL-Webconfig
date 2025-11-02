@@ -24,6 +24,21 @@ export const dfu: any = {};
     dfu.dfuERROR = 10;
 
     dfu.STATUS_OK = 0x0;
+    dfu.STATUS_errTARGET = 0x01;
+    dfu.STATUS_errFILE = 0x02;
+    dfu.STATUS_errWRITE = 0x03;
+    dfu.STATUS_errERASE = 0x04;
+    dfu.STATUS_errCHECK_ERASED = 0x05;
+    dfu.STATUS_errPROG = 0x06;
+    dfu.STATUS_errVERIFY = 0x07;
+    dfu.STATUS_errADDRESS = 0x08;
+    dfu.STATUS_errNOTDONE = 0x09;
+    dfu.STATUS_errFIRMWARE = 0x0a;
+    dfu.STATUS_errVENDOR = 0x0b;
+    dfu.STATUS_errUSBR = 0x0c;
+    dfu.STATUS_errPOR = 0x0d;
+    dfu.STATUS_errUNKNOWN = 0x0e;
+    dfu.STATUS_errSTALLEDPKT = 0x0f;
 
     dfu.Device = function(device, settings) {
         this.device_ = device;
