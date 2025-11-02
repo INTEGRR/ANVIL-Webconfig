@@ -191,9 +191,11 @@ export default function Flash() {
     try {
       const interfaceNumber = settings.interface.interfaceNumber;
       const alternateSetting = settings.alternate.alternateSetting;
+      const dfuseProtocol = settings.alternate.interfaceProtocol === 0x02;
 
       addLog(`Opening DFU device...`);
       addLog(`Interface: ${interfaceNumber}, Alternate: ${alternateSetting}`);
+      addLog(`Protocol: ${dfuseProtocol ? 'DfuSe (0x02)' : 'DFU (0x01)'}`);
 
       const confValue = settings.configuration.configurationValue;
       if (device.configuration === null || device.configuration.configurationValue !== confValue) {
@@ -248,6 +250,18 @@ export default function Flash() {
 
       const transferSize = settings.alternate.wTransferSize || 2048;
       addLog(`Transfer size: ${transferSize} bytes`);
+
+      if (dfuseProtocol) {
+        const startAddress = 0x08000000;
+        addLog(`DfuSe: Setting start address to 0x${startAddress.toString(16)}...`);
+        await dfuSetAddress(device, interfaceNumber, startAddress);
+
+        status = await dfuGetStatus(device, interfaceNumber);
+        addLog(`After set address: state=${status.state}, status=${status.status}`);
+
+        status = await pollUntilIdle(device, interfaceNumber, 5);
+        addLog(`Address set, now in state ${status.state}`);
+      }
 
       const totalBytes = data.length;
       let bytesSent = 0;
@@ -489,7 +503,11 @@ export default function Flash() {
               const settings = {
                 configuration: conf,
                 interface: iface,
-                alternate: { ...alt, wTransferSize: transferSize },
+                alternate: {
+                  alternateSetting: alt.alternateSetting,
+                  interfaceProtocol: alt.interfaceProtocol,
+                  wTransferSize: transferSize
+                },
                 name: alt.interfaceName || `@Internal Flash /0x08000000`
               };
 
