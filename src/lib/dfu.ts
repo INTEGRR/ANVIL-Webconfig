@@ -338,14 +338,29 @@ export class Device {
     this.logInfo('Download completed successfully');
   }
 
-  async poll_until(predicate: (state: number) => boolean): Promise<{ status: number; state: number }> {
+  async poll_until(predicate: (state: number) => boolean, timeout = 30000): Promise<{ status: number; state: number }> {
+    const startTime = Date.now();
     let status = await this.getStatus();
+    let iterations = 0;
 
     while (!predicate(status.state)) {
-      if (status.pollTimeout > 0) {
-        await new Promise(resolve => setTimeout(resolve, status.pollTimeout));
+      if (Date.now() - startTime > timeout) {
+        throw new Error(`Polling timeout after ${timeout}ms (state: ${status.state}, status: ${status.status})`);
       }
+
+      const pollDelay = Math.min(status.pollTimeout, 1000);
+      if (pollDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, pollDelay));
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       status = await this.getStatus();
+      iterations++;
+
+      if (iterations % 10 === 0) {
+        this.logDebug(`Polling state ${status.state}, status ${status.status} (iteration ${iterations})`);
+      }
     }
 
     return status;
