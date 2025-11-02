@@ -44,6 +44,22 @@ export default function DFUFlash() {
       if (interfaces[0].alternate.interfaceProtocol === 0x02) {
         addLog('info', 'Using DfuSe protocol (STM32)');
         dfuDevice = new dfuse.Device(usbDevice, interfaces[0]);
+
+        if (!dfuDevice.memoryInfo) {
+          addLog('info', 'Setting default STM32F303 memory map');
+          dfuDevice.memoryInfo = {
+            name: "Internal Flash",
+            segments: [{
+              start: 0x08000000,
+              sectorSize: 2048,
+              end: 0x08040000,
+              readable: true,
+              erasable: true,
+              writable: true
+            }]
+          };
+          dfuDevice.startAddress = 0x08000000;
+        }
       } else {
         addLog('info', 'Using standard DFU protocol');
         dfuDevice = new dfu.Device(usbDevice, interfaces[0]);
