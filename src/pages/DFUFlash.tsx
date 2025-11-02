@@ -35,8 +35,13 @@ export default function DFUFlash() {
         return;
       }
 
+      addLog('info', `Found ${interfaces.length} DFU interface(s)`);
+      interfaces.forEach((intf: any, idx: number) => {
+        addLog('info', `Interface ${idx}: ${intf.name || '(no name)'} - Protocol: ${intf.alternate.interfaceProtocol}`);
+      });
+
       let dfuDevice;
-      if (interfaces[0].name && interfaces[0].name.startsWith('@')) {
+      if (interfaces[0].alternate.interfaceProtocol === 0x02) {
         addLog('info', 'Using DfuSe protocol (STM32)');
         dfuDevice = new dfuse.Device(usbDevice, interfaces[0]);
       } else {
