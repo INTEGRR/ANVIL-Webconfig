@@ -78,9 +78,14 @@ export class Device {
 
   async open(): Promise<void> {
     await this.device_.open();
-    const confValue = this.settings.alternate.interfaceProtocol;
 
-    if (this.device_.configuration === null || this.device_.configuration.configurationValue !== confValue) {
+    if (this.device_.configuration === null) {
+      await this.device_.selectConfiguration(1);
+    }
+
+    const confValue = this.device_.configuration?.configurationValue || 1;
+
+    if (this.device_.configuration && this.device_.configuration.configurationValue !== confValue) {
       await this.device_.selectConfiguration(confValue);
     }
 
