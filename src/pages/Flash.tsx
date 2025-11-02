@@ -251,21 +251,22 @@ export default function Flash() {
       const transferSize = settings.alternate.wTransferSize || 2048;
       addLog(`Transfer size: ${transferSize} bytes`);
 
+      const totalBytes = data.length;
+      let bytesSent = 0;
+      let transaction = 0;
+
       if (dfuseProtocol) {
         const startAddress = 0x08000000;
         addLog(`DfuSe: Setting start address to 0x${startAddress.toString(16)}...`);
-        await dfuSetAddress(device, interfaceNumber, startAddress);
+        await dfuDownload(device, interfaceNumber, 0, new Uint8Array([0x21, startAddress & 0xff, (startAddress >> 8) & 0xff, (startAddress >> 16) & 0xff, (startAddress >> 24) & 0xff]));
 
         status = await dfuGetStatus(device, interfaceNumber);
         addLog(`After set address: state=${status.state}, status=${status.status}`);
 
         status = await pollUntilIdle(device, interfaceNumber, 5);
         addLog(`Address set, now in state ${status.state}`);
+        transaction = 2;
       }
-
-      const totalBytes = data.length;
-      let bytesSent = 0;
-      let transaction = 0;
 
       addLog(`Starting DFU download: ${totalBytes} bytes`);
       setStatus({ type: 'flashing', message: 'Flashing firmware via DFU...' });
