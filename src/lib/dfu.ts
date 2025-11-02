@@ -1,4 +1,4 @@
-var dfu = {};
+export const dfu: any = {};
 
 (function() {
     'use strict';

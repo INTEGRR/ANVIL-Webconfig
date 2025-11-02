@@ -1,8 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, AlertCircle, CheckCircle2, Zap, Info } from 'lucide-react';
-import '../lib/dfu';
-
-declare const dfu: any;
+import { dfu } from '../lib/dfu';
 
 interface LogEntry {
   type: 'info' | 'warning' | 'error' | 'success';
