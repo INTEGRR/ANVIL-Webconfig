@@ -302,7 +302,10 @@ export default function Configurator() {
         collections: selectedDevice.collections
       });
 
-      await selectedDevice.open();
+      if (!selectedDevice.opened) {
+        await selectedDevice.open();
+      }
+
       setDevice(selectedDevice);
       setConnected(true);
       alert(`Connected to ${selectedDevice.productName || 'keyboard'}!`);
@@ -504,7 +507,9 @@ export default function Configurator() {
                           if (devices.length > 0) {
                             const dev = devices[0];
                             console.log('Selected device:', dev);
-                            await dev.open();
+                            if (!dev.opened) {
+                              await dev.open();
+                            }
                             setDevice(dev);
                             setConnected(true);
                             alert(`Connected to ${dev.productName || 'device'}!\nVendor: 0x${dev.vendorId.toString(16)}\nProduct: 0x${dev.productId.toString(16)}`);
