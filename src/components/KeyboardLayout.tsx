@@ -57,7 +57,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, ke
           pointerEvents="none"
           style={{ userSelect: 'none' }}
         >
-          {keymapMode && keymap ? keymap[key.index].replace('KC_', '') : key.label}
+          {keymapMode && keymap && keymap[key.index] ? keymap[key.index].replace('KC_', '').replace('MO(1)', 'FN') : key.label}
         </text>
       </g>
     );

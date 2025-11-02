@@ -22,7 +22,6 @@ export default function KeycodeSelector({ currentKeyCode, onSelect, onClose }: K
 
   const handleSelect = (keyCode: string) => {
     onSelect(keyCode);
-    onClose();
   };
 
   return (
@@ -30,7 +29,10 @@ export default function KeycodeSelector({ currentKeyCode, onSelect, onClose }: K
       <div className="bg-brand-teal rounded-xl border border-brand-sage/20 max-w-4xl w-full max-h-[80vh] flex flex-col">
         <div className="p-6 border-b border-brand-sage/20">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-white">Select Keycode</h2>
+            <div>
+              <h2 className="text-2xl font-bold text-white">Select Keycode</h2>
+              <p className="text-brand-sage text-sm mt-1">Current: <span className="text-brand-beige font-semibold">{currentKeyCode}</span></p>
+            </div>
             <button
               onClick={onClose}
               className="text-brand-sage hover:text-white transition-colors"

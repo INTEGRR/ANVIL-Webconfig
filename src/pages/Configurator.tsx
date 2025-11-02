@@ -80,8 +80,10 @@ export default function Configurator() {
       setKeymap((prev) => {
         const newKeymap = [...prev];
         newKeymap[selectedKeyForKeymap] = keyCode;
+        console.log(`Key ${selectedKeyForKeymap} changed to ${keyCode}`);
         return newKeymap;
       });
+      setSelectedKeyForKeymap(null);
     }
   };
 
