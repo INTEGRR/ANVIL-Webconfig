@@ -292,6 +292,49 @@ export default function Configurator() {
     }
   };
 
+  const sendEffectToKeyboard = async () => {
+    if (!device || !connected) return;
+
+    try {
+      const effectModeMap: Record<string, number> = {
+        'none': 0,
+        'breathing': 2,
+        'rainbow': 10,
+        'wave': 11,
+        'reactive': 13,
+        'spiral': 15,
+        'ripple': 17
+      };
+
+      const mode = effectModeMap[effectConfig.type] || 0;
+
+      if (mode === 0) {
+        const modeData = new Uint8Array(32);
+        modeData[0] = 0x01;
+        modeData[1] = 0;
+        await device.sendReport(0x00, modeData);
+      } else {
+        const modeData = new Uint8Array(32);
+        modeData[0] = 0x01;
+        modeData[1] = mode;
+        await device.sendReport(0x00, modeData);
+
+        const speedData = new Uint8Array(32);
+        speedData[0] = 0x04;
+        speedData[1] = effectConfig.speed;
+        await device.sendReport(0x00, speedData);
+
+        const brightnessData = new Uint8Array(32);
+        brightnessData[0] = 0x03;
+        brightnessData[1] = effectConfig.intensity;
+        await device.sendReport(0x00, brightnessData);
+      }
+    } catch (error) {
+      console.error('Error sending effect to keyboard:', error);
+      alert('Failed to apply effect to keyboard');
+    }
+  };
+
   const sendColorToKeyboard = async (keyIndex: number, h: number, s: number, v: number) => {
     if (!device || !connected) return;
 
@@ -500,6 +543,21 @@ export default function Configurator() {
               effectConfig={effectConfig}
               onEffectChange={setEffectConfig}
             />
+
+            {connected && (
+              <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
+                <button
+                  onClick={sendEffectToKeyboard}
+                  className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-lg"
+                >
+                  <Usb className="w-6 h-6" />
+                  Apply Effect to Keyboard
+                </button>
+                <p className="text-brand-sage text-xs mt-2 text-center">
+                  Sends the current effect configuration to your keyboard
+                </p>
+              </div>
+            )}
 
             {selectedKeys.size > 0 && connected && (
               <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
