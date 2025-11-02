@@ -316,43 +316,6 @@ export default function Configurator() {
     }
   };
 
-  const generateMissingThumbnails = async () => {
-    if (!user) {
-      alert('Please sign in to generate thumbnails');
-      return;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert('No active session');
-        return;
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-preset-thumbnails`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        alert(`Success! Generated ${result.updated} thumbnails out of ${result.total} presets.`);
-      } else {
-        alert(`Error: ${result.error || 'Failed to generate thumbnails'}`);
-      }
-    } catch (error) {
-      console.error('Error generating thumbnails:', error);
-      alert('Failed to generate thumbnails');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-brand-brown">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -487,10 +450,10 @@ export default function Configurator() {
                   </button>
                 </div>
 
-                <div className="flex gap-3">
+                <div>
                   <label
                     htmlFor="importFile"
-                    className="flex-1 bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-3 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-3 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Upload className="w-5 h-5" />
                     Import JSON
@@ -502,16 +465,6 @@ export default function Configurator() {
                     onChange={handleImportJson}
                     className="hidden"
                   />
-
-                  {user && (
-                    <button
-                      onClick={generateMissingThumbnails}
-                      className="flex-1 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 py-3 rounded-lg font-semibold transition-colors border border-yellow-600/30 flex items-center justify-center gap-2 text-sm"
-                      title="Generate thumbnails for presets that don't have one"
-                    >
-                      Generate Thumbnails
-                    </button>
-                  )}
                 </div>
 
                 {!user && (
