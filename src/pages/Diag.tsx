@@ -72,7 +72,8 @@ export default function Diag() {
 
   const handleConnect = async () => {
     const success = await hidRef.current.requestDevice([
-      { vendorId: 0x04D8, usagePage: 0xFF60, usage: 0x61 }
+      { vendorId: 0x04D8, usagePage: 0xFF60, usage: 0x61 },
+      { vendorId: 0x04D8 }
     ]);
 
     if (success) {
@@ -232,6 +233,21 @@ export default function Diag() {
             <div className="text-sm text-gray-300">
               <p className="font-semibold mb-1">Privacy Notice</p>
               <p>This diagnostic tool only captures timing and matrix state data. No key content or text is transmitted or recorded. Works exclusively in Chrome/Edge browsers with WebHID support.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-yellow-900 bg-opacity-20 border border-yellow-500 p-4 rounded-lg mb-6">
+          <div className="flex items-start gap-3">
+            <Activity className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-gray-300">
+              <p className="font-semibold mb-1">Diagnostic Firmware Required</p>
+              <p className="mb-2">To use this diagnostic tool, your keyboard must be flashed with the special diagnostic firmware.</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs">
+                <li>Download the diagnostic firmware from the DFU Flash page</li>
+                <li>Flash it using the DFU bootloader (hold ESC while plugging in)</li>
+                <li>After testing, flash back to your normal firmware</li>
+              </ol>
             </div>
           </div>
         </div>
