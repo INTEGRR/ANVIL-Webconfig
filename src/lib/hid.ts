@@ -11,6 +11,7 @@ export class HIDConnection {
   private device: HIDDevice | null = null;
   private reportId: number = 0;
   private onDataHandler: DataHandler | null = null;
+  private inputReportListener: ((e: any) => void) | null = null;
 
   onData(handler: DataHandler): void {
     this.onDataHandler = handler;
@@ -94,12 +95,18 @@ export class HIDConnection {
         }
       }
 
-      this.device.addEventListener('inputreport', (e: any) => {
+      if (this.inputReportListener) {
+        this.device.removeEventListener('inputreport', this.inputReportListener);
+      }
+
+      this.inputReportListener = (e: any) => {
         const view = new Uint8Array(e.data.buffer);
         if (this.onDataHandler) {
           this.onDataHandler(view);
         }
-      });
+      };
+
+      this.device.addEventListener('inputreport', this.inputReportListener);
 
       return this.device.opened === true;
     } catch (error) {
@@ -121,8 +128,14 @@ export class HIDConnection {
   }
 
   async disconnect(): Promise<void> {
-    if (this.device && this.device.opened) {
-      await this.device.close();
+    if (this.device) {
+      if (this.inputReportListener) {
+        this.device.removeEventListener('inputreport', this.inputReportListener);
+        this.inputReportListener = null;
+      }
+      if (this.device.opened) {
+        await this.device.close();
+      }
     }
     this.device = null;
     this.reportId = 0;
