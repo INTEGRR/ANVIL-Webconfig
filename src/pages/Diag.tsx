@@ -72,7 +72,7 @@ export default function Diag() {
 
   const handleConnect = async () => {
     const success = await hidRef.current.requestDevice([
-      { vendorId: 0x04D8 }
+      { vendorId: 0x7470 }
     ]);
 
     if (success) {
