@@ -15,9 +15,12 @@ export class HIDConnection {
         throw new Error('WebHID not supported in this browser');
       }
 
-      const devices = await (navigator as any).hid.requestDevice({
-        filters: filters && filters.length > 0 ? filters : undefined
-      });
+      const options: any = {};
+      if (filters && filters.length > 0) {
+        options.filters = filters;
+      }
+
+      const devices = await (navigator as any).hid.requestDevice(options);
 
       console.log('Selected devices:', devices);
 
