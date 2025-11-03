@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
 import { Save, Download, Upload, Usb } from 'lucide-react';
 import KeyboardLayout from '../components/KeyboardLayout';
@@ -16,6 +17,7 @@ import { keycodeToHex } from '../utils/keycodeConverter';
 export default function Configurator() {
   const { user } = useAuth();
   const location = useLocation();
+  const toast = useToast();
   const [keyColors, setKeyColors] = useState<number[][]>(DEFAULT_COLORS.map(c => [...c]));
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set());
   const [lastSelectedKey, setLastSelectedKey] = useState<number | null>(null);
@@ -103,10 +105,9 @@ export default function Configurator() {
   };
 
   const handleResetColors = () => {
-    if (confirm('Reset all keys to default colors?')) {
-      setKeyColors(DEFAULT_COLORS.map(c => [...c]));
-      setSelectedKeys(new Set());
-    }
+    setKeyColors(DEFAULT_COLORS.map(c => [...c]));
+    setSelectedKeys(new Set());
+    toast.info('Colors reset to defaults');
   };
 
   const generateThumbnail = async (): Promise<string | null> => {
@@ -161,12 +162,12 @@ export default function Configurator() {
 
   const handleSave = async () => {
     if (!user) {
-      alert('Please sign in to save presets');
+      toast.warning('Please sign in to save presets');
       return;
     }
 
     if (!presetName.trim()) {
-      alert('Please enter a preset name');
+      toast.warning('Please enter a preset name');
       return;
     }
 
@@ -180,7 +181,7 @@ export default function Configurator() {
         .maybeSingle();
 
       if (!keyboardModel) {
-        alert('Keyboard model not found');
+        toast.error('Keyboard model not found');
         return;
       }
 
@@ -212,12 +213,12 @@ export default function Configurator() {
 
       if (error) throw error;
 
-      alert('Preset saved successfully!');
+      toast.success('Preset saved successfully!');
       setPresetName('');
       setDescription('');
     } catch (error) {
       console.error('Error saving preset:', error);
-      alert('Failed to save preset');
+      toast.error('Failed to save preset');
     } finally {
       setSaving(false);
     }
@@ -260,13 +261,13 @@ export default function Configurator() {
           if (data.keymap && Array.isArray(data.keymap)) {
             setKeymap(data.keymap);
           }
-          alert('Preset imported successfully!');
+          toast.success('Preset imported successfully!');
         } else {
-          alert('Invalid preset file format');
+          toast.error('Invalid preset file format');
         }
       } catch (error) {
         console.error('Error importing:', error);
-        alert('Failed to import preset');
+        toast.error('Failed to import preset');
       }
     };
     reader.readAsText(file);
@@ -276,7 +277,7 @@ export default function Configurator() {
   const connectToKeyboard = async () => {
     try {
       if (!('hid' in navigator)) {
-        alert('WebHID is not supported in your browser. Please use Chrome or Edge.');
+        toast.error('WebHID is not supported in your browser. Please use Chrome or Edge.');
         return;
       }
 
@@ -289,7 +290,7 @@ export default function Configurator() {
       });
 
       if (devices.length === 0) {
-        alert('No device selected');
+        toast.warning('No device selected');
         return;
       }
 
@@ -308,10 +309,10 @@ export default function Configurator() {
 
       setDevice(selectedDevice);
       setConnected(true);
-      alert(`Connected to ${selectedDevice.productName || 'keyboard'}!`);
+      toast.success(`Connected to ${selectedDevice.productName || 'keyboard'}!`);
     } catch (error) {
       console.error('Error connecting to keyboard:', error);
-      alert('Failed to connect to keyboard. Check console for details.');
+      toast.error('Failed to connect to keyboard. Check console for details.');
     }
   };
 
@@ -321,7 +322,7 @@ export default function Configurator() {
         await device.close();
         setDevice(null);
         setConnected(false);
-        alert('Disconnected from keyboard');
+        toast.info('Disconnected from keyboard');
       } catch (error) {
         console.error('Error disconnecting:', error);
       }
@@ -367,7 +368,7 @@ export default function Configurator() {
       }
     } catch (error) {
       console.error('Error sending effect to keyboard:', error);
-      alert('Failed to apply effect to keyboard');
+      toast.error('Failed to apply effect to keyboard');
     }
   };
 
@@ -409,7 +410,7 @@ export default function Configurator() {
 
   const syncAllColorsToKeyboard = async () => {
     if (!device || !connected) {
-      alert('Please connect to keyboard first');
+      toast.warning('Please connect to keyboard first');
       return;
     }
 
@@ -418,16 +419,16 @@ export default function Configurator() {
         await sendColorToKeyboard(i, keyColors[i][0], keyColors[i][1], keyColors[i][2]);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
-      alert('All colors synced to keyboard!');
+      toast.success('All colors synced to keyboard!');
     } catch (error) {
       console.error('Error syncing colors:', error);
-      alert('Failed to sync colors to keyboard');
+      toast.error('Failed to sync colors to keyboard');
     }
   };
 
   const syncKeymapToKeyboard = async () => {
     if (!device || !connected) {
-      alert('Please connect to keyboard first');
+      toast.warning('Please connect to keyboard first');
       return;
     }
 
@@ -437,10 +438,10 @@ export default function Configurator() {
         await sendKeycodeToKeyboard(i, keycodeValue, 0);
         await new Promise(resolve => setTimeout(resolve, 15));
       }
-      alert('Keymap synced to keyboard!');
+      toast.success('Keymap synced to keyboard!');
     } catch (error) {
       console.error('Error syncing keymap:', error);
-      alert('Failed to sync keymap to keyboard');
+      toast.error('Failed to sync keymap to keyboard');
     }
   };
 
@@ -512,11 +513,11 @@ export default function Configurator() {
                             }
                             setDevice(dev);
                             setConnected(true);
-                            alert(`Connected to ${dev.productName || 'device'}!\nVendor: 0x${dev.vendorId.toString(16)}\nProduct: 0x${dev.productId.toString(16)}`);
+                            toast.success(`Connected to ${dev.productName || 'device'}!`);
                           }
                         } catch (error) {
                           console.error('Error:', error);
-                          alert('Failed to connect');
+                          toast.error('Failed to connect');
                         }
                       }}
                       className="w-full bg-brand-teal/60 hover:bg-brand-teal/80 text-white py-2 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center justify-center gap-2 text-sm"
@@ -651,7 +652,7 @@ export default function Configurator() {
                     for (const index of selectedKeys) {
                       await sendColorToKeyboard(index, keyColors[index][0], keyColors[index][1], keyColors[index][2]);
                     }
-                    alert(`Applied colors to ${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''}!`);
+                    toast.success(`Applied colors to ${selectedKeys.size} key${selectedKeys.size > 1 ? 's' : ''}!`);
                   }}
                   className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-4 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-lg"
                 >

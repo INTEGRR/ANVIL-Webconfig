@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
 import { User, Lock, Trash2, X } from 'lucide-react';
 
 export default function Profile() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [username, setUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -52,10 +54,10 @@ export default function Profile() {
         .eq('id', user.id);
 
       if (error) throw error;
-      alert('Username updated successfully!');
+      toast.success('Username updated successfully!');
     } catch (error: any) {
       console.error('Error updating username:', error);
-      alert(error.message || 'Failed to update username');
+      toast.error(error.message || 'Failed to update username');
     } finally {
       setLoading(false);
     }
@@ -64,12 +66,12 @@ export default function Profile() {
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword || newPassword !== confirmPassword) {
-      alert('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
 
     if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -80,12 +82,12 @@ export default function Profile() {
       });
 
       if (error) throw error;
-      alert('Password updated successfully!');
+      toast.success('Password updated successfully!');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error('Error updating password:', error);
-      alert(error.message || 'Failed to update password');
+      toast.error(error.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -103,7 +105,7 @@ export default function Profile() {
       });
 
       if (signInError) {
-        alert('Incorrect password');
+        toast.error('Incorrect password');
         setDeleting(false);
         return;
       }
@@ -116,7 +118,7 @@ export default function Profile() {
       navigate('/');
     } catch (error: any) {
       console.error('Error deleting account:', error);
-      alert(error.message || 'Failed to delete account');
+      toast.error(error.message || 'Failed to delete account');
       setDeleting(false);
     }
   };

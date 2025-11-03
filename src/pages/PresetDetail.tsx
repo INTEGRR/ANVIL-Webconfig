@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { ArrowUp, ArrowDown, Download, Clock, User as UserIcon, MessageSquare, Share2 } from 'lucide-react';
 
 interface Preset {
@@ -37,6 +38,7 @@ export default function PresetDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [preset, setPreset] = useState<Preset | null>(null);
   const [loading, setLoading] = useState(true);
   const [score, setScore] = useState(0);
@@ -184,10 +186,11 @@ export default function PresetDetail() {
       if (error) throw error;
 
       setNewComment('');
+      toast.success('Comment posted successfully');
       loadComments();
     } catch (error) {
       console.error('Error posting comment:', error);
-      alert('Failed to post comment');
+      toast.error('Failed to post comment');
     }
   };
 
@@ -293,7 +296,7 @@ export default function PresetDetail() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(window.location.href);
-                      alert('Link copied to clipboard!');
+                      toast.success('Link copied to clipboard!');
                     }}
                     className="bg-brand-teal/60 hover:bg-brand-teal/80 text-white px-6 py-3 rounded-lg font-semibold transition-colors border border-brand-sage/30 flex items-center gap-2"
                   >

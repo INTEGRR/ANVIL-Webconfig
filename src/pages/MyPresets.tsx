@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Trash2, Globe, Lock, Link as LinkIcon } from 'lucide-react';
 
 interface Preset {
@@ -19,6 +20,7 @@ export default function MyPresets() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const toast = useToast();
 
   useEffect(() => {
     if (user) {
@@ -46,8 +48,6 @@ export default function MyPresets() {
   };
 
   const deletePreset = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this preset?')) return;
-
     try {
       const { error } = await supabase
         .from('presets')
@@ -55,10 +55,11 @@ export default function MyPresets() {
         .eq('id', id);
 
       if (error) throw error;
+      toast.success('Preset deleted successfully');
       loadPresets();
     } catch (error) {
       console.error('Error deleting preset:', error);
-      alert('Failed to delete preset');
+      toast.error('Failed to delete preset');
     }
   };
 
@@ -70,10 +71,11 @@ export default function MyPresets() {
         .eq('id', id);
 
       if (error) throw error;
+      toast.success('Visibility updated');
       loadPresets();
     } catch (error) {
       console.error('Error updating visibility:', error);
-      alert('Failed to update visibility');
+      toast.error('Failed to update visibility');
     }
   };
 
