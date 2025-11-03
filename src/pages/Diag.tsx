@@ -79,13 +79,14 @@ export default function Diag() {
     console.log('Device selected:', success);
     if (success) {
       console.log('Connecting to device...');
-      const connected = await hidRef.current.connect();
-      console.log('Connect result:', connected);
+      const connectResult = await hidRef.current.connect();
+      console.log('Connect result:', connectResult);
 
       const info = hidRef.current.getDeviceInfo();
       console.log('Device info:', info);
+
+      setConnected(connectResult);
       setDeviceInfo(info);
-      setConnected(connected);
 
       hidRef.current.onData((data) => {
         if (data[0] === 0x50) {
