@@ -46,6 +46,12 @@ export default function Diag() {
       setIsWebHIDSupported(false);
     }
 
+    return () => {
+      hidRef.current.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -65,7 +71,6 @@ export default function Diag() {
     window.addEventListener('keydown', handleKeyPress);
 
     return () => {
-      hidRef.current.disconnect();
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [connected, running]);
