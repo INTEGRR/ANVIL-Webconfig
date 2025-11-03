@@ -7,6 +7,10 @@
 
 static diag_state_t diag_state;
 
+#ifndef EECONFIG_SIZE
+#define EECONFIG_SIZE 0
+#endif
+
 #define EEPROM_DIAG_CONFIG_ADDR (EECONFIG_SIZE)
 #define EEPROM_DIAG_CONFIG_SIZE (KEY_COUNT_DIAG * 2)
 
