@@ -16,14 +16,25 @@ export class HIDConnection {
       }
 
       const devices = await (navigator as any).hid.requestDevice({
-        filters: filters || []
+        filters: filters && filters.length > 0 ? filters : undefined
       });
 
+      console.log('Selected devices:', devices);
+
       if (devices.length === 0) {
+        console.warn('No HID devices selected');
         return false;
       }
 
       this.device = devices[0];
+
+      console.log('Device info:', {
+        productName: this.device.productName,
+        vendorId: this.device.vendorId.toString(16),
+        productId: this.device.productId.toString(16),
+        collections: this.device.collections
+      });
+
       return true;
     } catch (error) {
       console.error('Failed to request HID device:', error);
@@ -41,7 +52,11 @@ export class HIDConnection {
         await this.device.open();
       }
 
+      console.log('Device opened successfully');
+      console.log('Collections:', this.device.collections);
+
       this.device.addEventListener('inputreport', (event: any) => {
+        console.log('Received input report:', event.reportId, new Uint8Array(event.data.buffer));
         const data = new Uint8Array(event.data.buffer);
         if (this.onDataCallback) {
           this.onDataCallback(data);
