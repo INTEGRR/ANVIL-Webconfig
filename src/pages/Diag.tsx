@@ -36,15 +36,39 @@ export default function Diag() {
   const [selectedKey, setSelectedKey] = useState<number | undefined>(undefined);
   const [testPhase, setTestPhase] = useState<string>('idle');
   const [sessionStart, setSessionStart] = useState<number>(0);
+  const [isWebHIDSupported, setIsWebHIDSupported] = useState(true);
 
   const hidRef = useRef(new HIDConnection());
   const analyzerRef = useRef(new DiagnosticAnalyzer());
 
   useEffect(() => {
+    if (!('hid' in navigator)) {
+      setIsWebHIDSupported(false);
+    }
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === ' ' && connected) {
+        e.preventDefault();
+        if (running) {
+          handleStop();
+        } else {
+          handleStart();
+        }
+      } else if (e.key === 'r' && connected && !running) {
+        e.preventDefault();
+        handleReset();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+
     return () => {
       hidRef.current.disconnect();
+      window.removeEventListener('keydown', handleKeyPress);
     };
-  }, []);
+  }, [connected, running]);
 
   const handleConnect = async () => {
     const success = await hidRef.current.requestDevice([
@@ -190,6 +214,18 @@ export default function Diag() {
   return (
     <div className="min-h-screen bg-brand-brown py-8">
       <div className="max-w-7xl mx-auto px-4">
+        {!isWebHIDSupported && (
+          <div className="bg-red-900 bg-opacity-30 border border-red-500 p-4 rounded-lg mb-6">
+            <div className="flex items-start gap-3">
+              <Activity className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-gray-300">
+                <p className="font-semibold mb-1 text-red-400">Browser Not Supported</p>
+                <p>WebHID is not available in your browser. Please use Chrome 89+ or Edge 89+ to access keyboard diagnostics.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-blue-900 bg-opacity-20 border border-blue-500 p-4 rounded-lg mb-6">
           <div className="flex items-start gap-3">
             <Activity className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
