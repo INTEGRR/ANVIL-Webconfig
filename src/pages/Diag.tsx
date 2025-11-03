@@ -77,54 +77,62 @@ export default function Diag() {
     ]);
 
     console.log('Device selected:', success);
-    if (success) {
-      console.log('Connecting to device...');
-      const connectResult = await hidRef.current.connect();
-      console.log('Connect result:', connectResult);
+    if (!success) {
+      console.error('Failed to select device');
+      return;
+    }
 
-      const info = hidRef.current.getDeviceInfo();
-      console.log('Device info:', info);
+    console.log('Connecting to device...');
+    const connectResult = await hidRef.current.connect();
+    console.log('Connect result:', connectResult);
 
-      setConnected(connectResult);
-      setDeviceInfo(info);
+    if (!connectResult) {
+      console.error('Failed to connect to device');
+      return;
+    }
 
-      hidRef.current.onData((data) => {
-        if (data[0] === 0x50) {
-          const event = parseEdgeEvent(data);
-          if (event) {
-            setEvents(prev => [...prev, event]);
-            analyzerRef.current.addEvent(event);
+    const info = hidRef.current.getDeviceInfo();
+    console.log('Device info:', info);
 
-            if (event.phase === 2) {
-              const row = Math.floor(event.key / MATRIX_CONFIG.COLS);
-              const col = event.key % MATRIX_CONFIG.COLS;
-              setPostDebounceState(prev => {
-                const newState = prev.map(r => [...r]);
-                newState[row][col] = event.kind === 1;
-                return newState;
-              });
-            }
-          }
-        } else if (data[0] === 0x51) {
-          const summary = parseScanSummary(data);
-          if (summary) {
-            setScanSummaries(prev => [...prev, summary]);
+    setConnected(true);
+    setDeviceInfo(info);
 
-            const newPreState = Array.from({ length: MATRIX_CONFIG.ROWS }, () =>
-              Array(MATRIX_CONFIG.COLS).fill(false)
-            );
+    hidRef.current.onData((data) => {
+      if (data[0] === 0x50) {
+        const event = parseEdgeEvent(data);
+        if (event) {
+          setEvents(prev => [...prev, event]);
+          analyzerRef.current.addEvent(event);
 
-            for (let row = 0; row < summary.rows; row++) {
-              for (let col = 0; col < summary.cols; col++) {
-                newPreState[row][col] = isBitSet(summary.bitmap, row, col, summary.stride);
-              }
-            }
-
-            setPreDebounceState(newPreState);
+          if (event.phase === 2) {
+            const row = Math.floor(event.key / MATRIX_CONFIG.COLS);
+            const col = event.key % MATRIX_CONFIG.COLS;
+            setPostDebounceState(prev => {
+              const newState = prev.map(r => [...r]);
+              newState[row][col] = event.kind === 1;
+              return newState;
+            });
           }
         }
-      });
-    }
+      } else if (data[0] === 0x51) {
+        const summary = parseScanSummary(data);
+        if (summary) {
+          setScanSummaries(prev => [...prev, summary]);
+
+          const newPreState = Array.from({ length: MATRIX_CONFIG.ROWS }, () =>
+            Array(MATRIX_CONFIG.COLS).fill(false)
+          );
+
+          for (let row = 0; row < summary.rows; row++) {
+            for (let col = 0; col < summary.cols; col++) {
+              newPreState[row][col] = isBitSet(summary.bitmap, row, col, summary.stride);
+            }
+          }
+
+          setPreDebounceState(newPreState);
+        }
+      }
+    });
   };
 
   const handleStart = async () => {
