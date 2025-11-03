@@ -293,6 +293,7 @@ export default function Diag() {
           <div className="flex flex-wrap gap-4 mb-6">
             {!connected ? (
               <button
+                type="button"
                 onClick={handleConnect}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
               >
@@ -313,6 +314,7 @@ export default function Diag() {
 
                 {!running ? (
                   <button
+                    type="button"
                     onClick={handleStart}
                     className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
                   >
@@ -321,6 +323,7 @@ export default function Diag() {
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={handleStop}
                     className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
                   >
@@ -330,6 +333,7 @@ export default function Diag() {
                 )}
 
                 <button
+                  type="button"
                   onClick={handleReset}
                   className="flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors"
                 >
@@ -338,6 +342,7 @@ export default function Diag() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleExportJSON}
                   disabled={events.length === 0}
                   className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -347,6 +352,7 @@ export default function Diag() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleExportPNG}
                   disabled={events.length === 0}
                   className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -356,6 +362,7 @@ export default function Diag() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleSaveEeprom}
                   className="flex items-center gap-2 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors"
                 >
@@ -364,6 +371,7 @@ export default function Diag() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleLoadEeprom}
                   className="flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors"
                 >
