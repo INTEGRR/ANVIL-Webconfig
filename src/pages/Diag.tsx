@@ -136,12 +136,6 @@ export default function Diag() {
   };
 
   const handleStart = async () => {
-    console.log('handleStart called, connected:', hidRef.current.isConnected());
-    if (!hidRef.current.isConnected()) {
-      console.error('Device not connected, cannot start test');
-      return;
-    }
-
     console.log('Starting diagnostic test...');
     analyzerRef.current.reset();
     setEvents([]);
