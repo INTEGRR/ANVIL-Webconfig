@@ -8,6 +8,7 @@ export interface HIDDeviceFilter {
 export class HIDConnection {
   private device: HIDDevice | null = null;
   private onDataCallback: ((data: Uint8Array) => void) | null = null;
+  private isOpen: boolean = false;
 
   async requestDevice(filters?: HIDDeviceFilter[]): Promise<boolean> {
     try {
@@ -55,6 +56,8 @@ export class HIDConnection {
         await this.device.open();
       }
 
+      this.isOpen = true;
+
       console.log('Device opened successfully');
       console.log('Collections:', this.device.collections);
 
@@ -69,6 +72,7 @@ export class HIDConnection {
       return true;
     } catch (error) {
       console.error('Failed to connect to HID device:', error);
+      this.isOpen = false;
       return false;
     }
   }
@@ -77,6 +81,7 @@ export class HIDConnection {
     if (this.device && this.device.opened) {
       await this.device.close();
     }
+    this.isOpen = false;
     this.device = null;
     this.onDataCallback = null;
   }
@@ -86,7 +91,7 @@ export class HIDConnection {
   }
 
   async sendReport(reportId: number, data: Uint8Array): Promise<void> {
-    if (!this.device || !this.device.opened) {
+    if (!this.device || !this.isOpen) {
       throw new Error('Device not connected');
     }
 
@@ -108,12 +113,6 @@ export class HIDConnection {
   }
 
   isConnected(): boolean {
-    const result = this.device !== null && this.device.opened;
-    console.log('isConnected check:', {
-      hasDevice: this.device !== null,
-      isOpened: this.device?.opened,
-      result
-    });
-    return result;
+    return this.isOpen && this.device !== null;
   }
 }
