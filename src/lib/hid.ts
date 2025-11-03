@@ -8,40 +8,24 @@ export interface HIDDeviceFilter {
 export class HIDConnection {
   private device: HIDDevice | null = null;
   private onDataCallback: ((data: Uint8Array) => void) | null = null;
-  private isOpen: boolean = false;
 
   async requestDevice(filters?: HIDDeviceFilter[]): Promise<boolean> {
     try {
       if (!('hid' in navigator)) {
-        throw new Error('WebHID not supported in this browser');
+        throw new Error('WebHID not supported');
       }
 
-      const options: any = {};
-      if (filters && filters.length > 0) {
-        options.filters = filters;
-      }
-
+      const options: any = filters && filters.length > 0 ? { filters } : {};
       const devices = await (navigator as any).hid.requestDevice(options);
 
-      console.log('Selected devices:', devices);
-
       if (devices.length === 0) {
-        console.warn('No HID devices selected');
         return false;
       }
 
       this.device = devices[0];
-
-      console.log('Device info:', {
-        productName: this.device.productName,
-        vendorId: this.device.vendorId.toString(16),
-        productId: this.device.productId.toString(16),
-        collections: this.device.collections
-      });
-
       return true;
     } catch (error) {
-      console.error('Failed to request HID device:', error);
+      console.error('Failed to request device:', error);
       return false;
     }
   }
@@ -52,17 +36,9 @@ export class HIDConnection {
     }
 
     try {
-      if (!this.device.opened) {
-        await this.device.open();
-      }
-
-      this.isOpen = true;
-
-      console.log('Device opened successfully');
-      console.log('Collections:', this.device.collections);
+      await this.device.open();
 
       this.device.addEventListener('inputreport', (event: any) => {
-        console.log('Received input report:', event.reportId, new Uint8Array(event.data.buffer));
         const data = new Uint8Array(event.data.buffer);
         if (this.onDataCallback) {
           this.onDataCallback(data);
@@ -71,17 +47,15 @@ export class HIDConnection {
 
       return true;
     } catch (error) {
-      console.error('Failed to connect to HID device:', error);
-      this.isOpen = false;
+      console.error('Failed to open device:', error);
       return false;
     }
   }
 
   async disconnect(): Promise<void> {
-    if (this.device && this.device.opened) {
+    if (this.device?.opened) {
       await this.device.close();
     }
-    this.isOpen = false;
     this.device = null;
     this.onDataCallback = null;
   }
@@ -91,20 +65,16 @@ export class HIDConnection {
   }
 
   async sendReport(reportId: number, data: Uint8Array): Promise<void> {
-    if (!this.device || !this.isOpen) {
-      throw new Error('Device not connected');
+    if (!this.device?.opened) {
+      throw new Error('Device not open');
     }
-
-    console.log('Sending HID report:', { reportId, data: Array.from(data) });
     await this.device.sendReport(reportId, data);
-    console.log('HID report sent successfully');
   }
 
   getDeviceInfo(): { productName: string; vendorId: number; productId: number } | null {
     if (!this.device) {
       return null;
     }
-
     return {
       productName: this.device.productName || 'Unknown',
       vendorId: this.device.vendorId,
@@ -113,6 +83,6 @@ export class HIDConnection {
   }
 
   isConnected(): boolean {
-    return this.isOpen && this.device !== null;
+    return this.device?.opened === true;
   }
 }
