@@ -5,9 +5,30 @@ export interface HIDDeviceFilter {
   usage?: number;
 }
 
+type DataHandler = (data: Uint8Array) => void;
+
 export class HIDConnection {
   private device: HIDDevice | null = null;
-  private onDataCallback: ((data: Uint8Array) => void) | null = null;
+  private reportId: number = 0;
+  private onDataHandler: DataHandler | null = null;
+
+  onData(handler: DataHandler): void {
+    this.onDataHandler = handler;
+  }
+
+  isConnected(): boolean {
+    return !!this.device && this.device.opened === true;
+  }
+
+  getDeviceInfo(): { productName: string; vendorId: number; productId: number; opened: boolean } | null {
+    if (!this.device) return null;
+    return {
+      productName: this.device.productName || 'Unknown',
+      vendorId: this.device.vendorId,
+      productId: this.device.productId,
+      opened: this.device.opened
+    };
+  }
 
   async requestDevice(filters?: HIDDeviceFilter[]): Promise<boolean> {
     try {
@@ -15,74 +36,107 @@ export class HIDConnection {
         throw new Error('WebHID not supported');
       }
 
-      const options: any = filters && filters.length > 0 ? { filters } : {};
-      const devices = await (navigator as any).hid.requestDevice(options);
+      let devices = await (navigator as any).hid.getDevices();
 
-      if (devices.length === 0) {
-        return false;
+      if (filters && filters.length > 0) {
+        devices = devices.filter((d: HIDDevice) =>
+          filters.some(f =>
+            (f.vendorId == null || d.vendorId === f.vendorId) &&
+            (f.productId == null || d.productId === f.productId) &&
+            (f.usagePage == null || d.collections.some(c => c.usagePage === f.usagePage))
+          )
+        );
       }
 
-      this.device = devices[0];
-      return true;
+      if (devices.length === 0) {
+        const requested = await (navigator as any).hid.requestDevice({ filters: filters || [] });
+        if (requested.length === 0) return false;
+        this.device = requested[0];
+      } else {
+        this.device = devices[0];
+      }
+
+      this.bindDeviceEvents();
+      return !!this.device;
     } catch (error) {
       console.error('Failed to request device:', error);
       return false;
     }
   }
 
+  private bindDeviceEvents(): void {
+    (navigator as any).hid.onconnect = (e: any) => {
+      if (!this.device && e.device) {
+        this.device = e.device;
+      }
+    };
+    (navigator as any).hid.ondisconnect = (e: any) => {
+      if (this.device && e.device === this.device) {
+        this.device = null;
+      }
+    };
+  }
+
   async connect(): Promise<boolean> {
-    if (!this.device) {
-      return false;
-    }
+    if (!this.device) return false;
 
     try {
-      await this.device.open();
+      if (!this.device.opened) {
+        await this.device.open();
+      }
 
-      this.device.addEventListener('inputreport', (event: any) => {
-        const data = new Uint8Array(event.data.buffer);
-        if (this.onDataCallback) {
-          this.onDataCallback(data);
+      this.reportId = 0;
+      const coll = this.device.collections.find(() => true);
+      if (coll && coll.outputReports && coll.outputReports.length > 0) {
+        const rid = coll.outputReports[0].reportId;
+        if (typeof rid === 'number') {
+          this.reportId = rid;
+        }
+      }
+
+      this.device.addEventListener('inputreport', (e: any) => {
+        const view = new Uint8Array(e.data.buffer);
+        if (this.onDataHandler) {
+          this.onDataHandler(view);
         }
       });
 
-      return true;
+      return this.device.opened === true;
     } catch (error) {
       console.error('Failed to open device:', error);
       return false;
     }
   }
 
+  async ensureConnected(): Promise<void> {
+    if (!this.device) {
+      throw new Error('No device selected');
+    }
+    if (!this.device.opened) {
+      await this.device.open();
+      if (this.reportId == null) {
+        this.reportId = 0;
+      }
+    }
+  }
+
   async disconnect(): Promise<void> {
-    if (this.device?.opened) {
+    if (this.device && this.device.opened) {
       await this.device.close();
     }
     this.device = null;
-    this.onDataCallback = null;
+    this.reportId = 0;
+    this.onDataHandler = null;
   }
 
-  onData(callback: (data: Uint8Array) => void): void {
-    this.onDataCallback = callback;
-  }
-
-  async sendReport(reportId: number, data: Uint8Array): Promise<void> {
-    if (!this.device?.opened) {
-      throw new Error('Device not open');
-    }
-    await this.device.sendReport(reportId, data);
-  }
-
-  getDeviceInfo(): { productName: string; vendorId: number; productId: number } | null {
+  async sendReport(reportId: number | null, payload: Uint8Array): Promise<void> {
     if (!this.device) {
-      return null;
+      throw new Error('Device not selected');
     }
-    return {
-      productName: this.device.productName || 'Unknown',
-      vendorId: this.device.vendorId,
-      productId: this.device.productId
-    };
-  }
-
-  isConnected(): boolean {
-    return this.device?.opened === true;
+    if (!this.device.opened) {
+      await this.device.open();
+    }
+    const rid = reportId ?? this.reportId ?? 0;
+    await this.device.sendReport(rid, payload);
   }
 }

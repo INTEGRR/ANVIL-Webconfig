@@ -71,31 +71,22 @@ export default function Diag() {
   }, [connected, running]);
 
   const handleConnect = async () => {
-    console.log('Requesting HID device...');
     const success = await hidRef.current.requestDevice([
-      { vendorId: 0x7470 }
+      { vendorId: 0x7470, usagePage: 0xff60 }
     ]);
 
-    console.log('Device selected:', success);
-    if (!success) {
-      console.error('Failed to select device');
+    if (!success) return;
+
+    try {
+      const ok = await hidRef.current.connect();
+      if (!ok) throw new Error('HID open failed');
+    } catch (e) {
+      console.error('Open failed:', e);
       return;
     }
 
-    console.log('Connecting to device...');
-    const connectResult = await hidRef.current.connect();
-    console.log('Connect result:', connectResult);
-
-    if (!connectResult) {
-      console.error('Failed to connect to device');
-      return;
-    }
-
-    const info = hidRef.current.getDeviceInfo();
-    console.log('Device info:', info);
-
-    setConnected(true);
-    setDeviceInfo(info);
+    setConnected(hidRef.current.isConnected());
+    setDeviceInfo(hidRef.current.getDeviceInfo());
 
     hidRef.current.onData((data) => {
       if (data[0] === 0x50) {
@@ -136,68 +127,91 @@ export default function Diag() {
   };
 
   const handleStart = async () => {
-    console.log('Starting diagnostic test...');
-    analyzerRef.current.reset();
-    setEvents([]);
-    setScanSummaries([]);
-    setSessionStart(Date.now());
-    setRunning(true);
-    setTestPhase('single-keys');
+    try {
+      await hidRef.current.ensureConnected();
+      analyzerRef.current.reset();
+      setEvents([]);
+      setScanSummaries([]);
+      setSessionStart(Date.now());
+      setRunning(true);
+      setTestPhase('single-keys');
 
-    const enableCmd = buildDiagEnable(true, 4);
-    console.log('Sending DIAG_ENABLE command:', Array.from(enableCmd));
-    await hidRef.current.sendReport(0x00, enableCmd);
-    console.log('Test started successfully');
+      const enableCmd = buildDiagEnable(true, 4);
+      await hidRef.current.sendReport(null, enableCmd);
+    } catch (e) {
+      console.error(e);
+      setRunning(false);
+    }
   };
 
   const handleStop = async () => {
-    if (!hidRef.current.isConnected()) return;
-
-    await hidRef.current.sendReport(0x00, buildDiagEnable(false, 0));
-    setRunning(false);
-    setTestPhase('completed');
+    try {
+      await hidRef.current.ensureConnected();
+      await hidRef.current.sendReport(null, buildDiagEnable(false, 0));
+      setRunning(false);
+      setTestPhase('completed');
+    } catch (e) {
+      console.error(e);
+      setRunning(false);
+    }
   };
 
   const handleReset = async () => {
-    if (!hidRef.current.isConnected()) return;
-
-    await hidRef.current.sendReport(0x00, buildDiagReset());
-    analyzerRef.current.reset();
-    setEvents([]);
-    setScanSummaries([]);
-    setPreDebounceState(
-      Array.from({ length: MATRIX_CONFIG.ROWS }, () => Array(MATRIX_CONFIG.COLS).fill(false))
-    );
-    setPostDebounceState(
-      Array.from({ length: MATRIX_CONFIG.ROWS }, () => Array(MATRIX_CONFIG.COLS).fill(false))
-    );
-    setTestPhase('idle');
+    try {
+      await hidRef.current.ensureConnected();
+      await hidRef.current.sendReport(null, buildDiagReset());
+      analyzerRef.current.reset();
+      setEvents([]);
+      setScanSummaries([]);
+      setPreDebounceState(
+        Array.from({ length: MATRIX_CONFIG.ROWS }, () => Array(MATRIX_CONFIG.COLS).fill(false))
+      );
+      setPostDebounceState(
+        Array.from({ length: MATRIX_CONFIG.ROWS }, () => Array(MATRIX_CONFIG.COLS).fill(false))
+      );
+      setTestPhase('idle');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleApplyFix = async (recommendation: any) => {
-    if (!hidRef.current.isConnected() || !recommendation.action) return;
+    if (!recommendation.action) return;
 
-    const action = recommendation.action;
+    try {
+      await hidRef.current.ensureConnected();
+      const action = recommendation.action;
 
-    if (action.type === 'debounce' && action.params) {
-      const { key, increase } = action.params;
-      await hidRef.current.sendReport(0x00, buildSetDebounce(key, 5 + increase));
-    } else if (action.type === 'eager' && action.params) {
-      const { enable } = action.params;
-      for (let key = 0; key < MATRIX_CONFIG.KEY_COUNT; key++) {
-        await hidRef.current.sendReport(0x00, buildSetEager(key, enable));
+      if (action.type === 'debounce' && action.params) {
+        const { key, increase } = action.params;
+        await hidRef.current.sendReport(null, buildSetDebounce(key, 5 + increase));
+      } else if (action.type === 'eager' && action.params) {
+        const { enable } = action.params;
+        for (let key = 0; key < MATRIX_CONFIG.KEY_COUNT; key++) {
+          await hidRef.current.sendReport(null, buildSetEager(key, enable));
+        }
       }
+    } catch (e) {
+      console.error(e);
     }
   };
 
   const handleSaveEeprom = async () => {
-    if (!hidRef.current.isConnected()) return;
-    await hidRef.current.sendReport(0x00, buildSaveEeprom());
+    try {
+      await hidRef.current.ensureConnected();
+      await hidRef.current.sendReport(null, buildSaveEeprom());
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleLoadEeprom = async () => {
-    if (!hidRef.current.isConnected()) return;
-    await hidRef.current.sendReport(0x00, buildLoadEeprom());
+    try {
+      await hidRef.current.ensureConnected();
+      await hidRef.current.sendReport(null, buildLoadEeprom());
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleExportJSON = () => {
