@@ -1,5 +1,13 @@
 /* dfu.js must be included before dfuse.js */
 
+/**
+ * DfuSe (STM32 DFU Extension) Library
+ * Based on WebDFU by Devan Lai (https://github.com/devanlai/webdfu)
+ *
+ * Copyright (c) 2016, Devan Lai
+ * ISC License
+ */
+
 import { dfu } from './dfu';
 
 export const dfuse: any = {};

@@ -1,3 +1,11 @@
+/**
+ * DFU (Device Firmware Update) Library
+ * Based on WebDFU by Devan Lai (https://github.com/devanlai/webdfu)
+ *
+ * Copyright (c) 2016, Devan Lai
+ * ISC License
+ */
+
 export const dfu: any = {};
 
 (function() {

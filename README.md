@@ -735,7 +735,12 @@ netlify deploy --prod --dir=dist
 
 ## 📝 License
 
-[Add your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+
+This project includes code from:
+- **WebDFU** by Devan Lai - ISC License (https://github.com/devanlai/webdfu)
 
 ## 🤝 Contributing
 
