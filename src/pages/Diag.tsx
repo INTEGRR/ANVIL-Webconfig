@@ -121,8 +121,13 @@ export default function Diag() {
   };
 
   const handleStart = async () => {
-    if (!hidRef.current.isConnected()) return;
+    console.log('handleStart called, connected:', hidRef.current.isConnected());
+    if (!hidRef.current.isConnected()) {
+      console.error('Device not connected, cannot start test');
+      return;
+    }
 
+    console.log('Starting diagnostic test...');
     analyzerRef.current.reset();
     setEvents([]);
     setScanSummaries([]);
@@ -130,7 +135,10 @@ export default function Diag() {
     setRunning(true);
     setTestPhase('single-keys');
 
-    await hidRef.current.sendReport(0x00, buildDiagEnable(true, 4));
+    const enableCmd = buildDiagEnable(true, 4);
+    console.log('Sending DIAG_ENABLE command:', Array.from(enableCmd));
+    await hidRef.current.sendReport(0x00, enableCmd);
+    console.log('Test started successfully');
   };
 
   const handleStop = async () => {

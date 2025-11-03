@@ -90,7 +90,9 @@ export class HIDConnection {
       throw new Error('Device not connected');
     }
 
+    console.log('Sending HID report:', { reportId, data: Array.from(data) });
     await this.device.sendReport(reportId, data);
+    console.log('HID report sent successfully');
   }
 
   getDeviceInfo(): { productName: string; vendorId: number; productId: number } | null {
