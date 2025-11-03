@@ -108,6 +108,12 @@ export class HIDConnection {
   }
 
   isConnected(): boolean {
-    return this.device !== null && this.device.opened;
+    const result = this.device !== null && this.device.opened;
+    console.log('isConnected check:', {
+      hasDevice: this.device !== null,
+      isOpened: this.device?.opened,
+      result
+    });
+    return result;
   }
 }
