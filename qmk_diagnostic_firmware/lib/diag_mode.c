@@ -2,6 +2,7 @@
 #include "timer_us.h"
 #include "raw_hid.h"
 #include "eeconfig.h"
+#include "eeprom.h"
 #include <string.h>
 
 static diag_state_t diag_state;
@@ -173,7 +174,6 @@ bool diag_is_eager(uint8_t key) {
 }
 
 void diag_save_to_eeprom(void) {
-    uint8_t *config_ptr = (uint8_t *)&diag_state.debounce_ms[0];
     for (uint16_t i = 0; i < KEY_COUNT_DIAG; i++) {
         eeprom_update_byte((uint8_t *)(EEPROM_DIAG_CONFIG_ADDR + i), diag_state.debounce_ms[i]);
     }

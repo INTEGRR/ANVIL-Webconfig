@@ -9,3 +9,5 @@
 #define DEBOUNCE 5
 
 #define FORCE_NKRO
+
+#define EEPROM_SIZE 1024
