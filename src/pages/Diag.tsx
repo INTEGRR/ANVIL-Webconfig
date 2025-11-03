@@ -71,15 +71,21 @@ export default function Diag() {
   }, [connected, running]);
 
   const handleConnect = async () => {
+    console.log('Requesting HID device...');
     const success = await hidRef.current.requestDevice([
       { vendorId: 0x7470 }
     ]);
 
+    console.log('Device selected:', success);
     if (success) {
-      await hidRef.current.connect();
+      console.log('Connecting to device...');
+      const connected = await hidRef.current.connect();
+      console.log('Connect result:', connected);
+
       const info = hidRef.current.getDeviceInfo();
+      console.log('Device info:', info);
       setDeviceInfo(info);
-      setConnected(true);
+      setConnected(connected);
 
       hidRef.current.onData((data) => {
         if (data[0] === 0x50) {
