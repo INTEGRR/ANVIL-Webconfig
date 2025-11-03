@@ -71,7 +71,9 @@ export default function Diag() {
   }, [connected, running]);
 
   const handleConnect = async () => {
-    const success = await hidRef.current.requestDevice();
+    const success = await hidRef.current.requestDevice([
+      { vendorId: 0x04D8 }
+    ]);
 
     if (success) {
       await hidRef.current.connect();
