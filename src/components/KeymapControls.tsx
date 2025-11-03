@@ -44,13 +44,18 @@ export default function KeymapControls({ keymapMode, onToggleMode, connected, on
         )}
 
         {connected && onSyncKeymap && (
-          <button
-            onClick={onSyncKeymap}
-            className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-          >
-            <Usb className="w-4 h-4" />
-            Sync Keymap to Keyboard
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={onSyncKeymap}
+              className="w-full bg-brand-beige hover:bg-brand-beige/90 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              <Usb className="w-4 h-4" />
+              Sync Keymap to Keyboard
+            </button>
+            <p className="text-brand-sage text-xs text-center">
+              Note: Unplug and replug keyboard after syncing to apply changes
+            </p>
+          </div>
         )}
       </div>
     </div>

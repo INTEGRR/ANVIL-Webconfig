@@ -438,7 +438,7 @@ export default function Configurator() {
         await sendKeycodeToKeyboard(i, keycodeValue, 0);
         await new Promise(resolve => setTimeout(resolve, 15));
       }
-      toast.success('Keymap synced to keyboard!');
+      toast.success('Keymap synced! Please unplug and replug your keyboard to apply changes.');
     } catch (error) {
       console.error('Error syncing keymap:', error);
       toast.error('Failed to sync keymap to keyboard');
