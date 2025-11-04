@@ -7,9 +7,10 @@ interface KeyboardLayoutProps {
   onKeyClick: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
   keymap?: string[];
   keymapMode?: boolean;
+  showIndexes?: boolean;
 }
 
-export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, keymap, keymapMode }: KeyboardLayoutProps) {
+export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, keymap, keymapMode, showIndexes }: KeyboardLayoutProps) {
   const KEY_SIZE = 50;
   const PADDING = 10;
 
@@ -48,7 +49,7 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, ke
         />
         <text
           x={x + width / 2}
-          y={y + height / 2}
+          y={y + height / 2 - (showIndexes ? 6 : 0)}
           textAnchor="middle"
           dominantBaseline="middle"
           fill="white"
@@ -59,6 +60,21 @@ export default function KeyboardLayout({ keyColors, selectedKeys, onKeyClick, ke
         >
           {keymapMode && keymap && keymap[key.index] ? keymap[key.index].replace('KC_', '').replace('MO(1)', 'FN') : key.label}
         </text>
+        {showIndexes && (
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 10}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#88C0D0"
+            fontSize="8"
+            fontWeight="500"
+            pointerEvents="none"
+            style={{ userSelect: 'none' }}
+          >
+            #{key.index}
+          </text>
+        )}
       </g>
     );
   };

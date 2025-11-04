@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Bug, Send } from 'lucide-react';
+import { Bug, Send, Hash } from 'lucide-react';
 import { keycodeToHex } from '../utils/keycodeConverter';
 
 interface KeymapDebuggerProps {
   device: any;
   connected: boolean;
   onSendCommand: (keyIndex: number, keycode: number, layer: number) => Promise<void>;
+  showIndexes: boolean;
+  onToggleIndexes: (show: boolean) => void;
 }
 
-export default function KeymapDebugger({ device, connected, onSendCommand }: KeymapDebuggerProps) {
+export default function KeymapDebugger({ device, connected, onSendCommand, showIndexes, onToggleIndexes }: KeymapDebuggerProps) {
   const [keyIndex, setKeyIndex] = useState('0');
   const [keycodeStr, setKeycodeStr] = useState('KC_A');
   const [layer, setLayer] = useState('0');
@@ -96,6 +98,21 @@ export default function KeymapDebugger({ device, connected, onSendCommand }: Key
       </h3>
 
       <div className="space-y-4">
+        <div className="flex items-center justify-between mb-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showIndexes}
+              onChange={(e) => onToggleIndexes(e.target.checked)}
+              className="w-4 h-4 rounded border-brand-sage/30 bg-brand-teal/60 text-brand-beige focus:ring-brand-beige"
+            />
+            <span className="text-sm text-brand-sage flex items-center gap-1">
+              <Hash className="w-4 h-4" />
+              Show Key Indexes
+            </span>
+          </label>
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-xs text-brand-sage mb-1">Key Index</label>
@@ -162,7 +179,12 @@ export default function KeymapDebugger({ device, connected, onSendCommand }: Key
             <strong className="text-brand-blue">Debug Info:</strong><br />
             • Command 0x05 = Write keycode<br />
             • Command 0x04 = Read keycode<br />
-            • Check browser console (F12) for detailed packet logs
+            • Check browser console (F12) for detailed packet logs<br />
+            <br />
+            <strong className="text-brand-blue">Response Analysis:</strong><br />
+            • Response `0x05 0x01 0x00...` = Firmware received command<br />
+            • Byte 1 = `0x01` might indicate error or unsupported operation<br />
+            • If keymap doesn't change: EEPROM might be read-only or command not implemented
           </p>
         </div>
       </div>

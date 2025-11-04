@@ -31,6 +31,7 @@ export default function Configurator() {
   const [keymapMode, setKeymapMode] = useState(false);
   const [keymap, setKeymap] = useState<string[]>(KEYBOARD_LAYOUT.map(k => k.keyCode));
   const [selectedKeyForKeymap, setSelectedKeyForKeymap] = useState<number | null>(null);
+  const [showIndexes, setShowIndexes] = useState(false);
 
   useEffect(() => {
     if (location.state?.preset) {
@@ -539,6 +540,7 @@ export default function Configurator() {
               onKeyClick={handleKeyClick}
               keymap={keymap}
               keymapMode={keymapMode}
+              showIndexes={showIndexes}
             />
 
             <div className="bg-brand-teal rounded-xl border border-brand-sage/20 p-6">
@@ -699,6 +701,8 @@ export default function Configurator() {
               device={device}
               connected={connected}
               onSendCommand={sendKeycodeToKeyboard}
+              showIndexes={showIndexes}
+              onToggleIndexes={setShowIndexes}
             />
 
             <RGBControls
