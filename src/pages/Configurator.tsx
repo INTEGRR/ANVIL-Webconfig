@@ -419,21 +419,17 @@ export default function Configurator() {
     if (!device || !connected) return;
 
     try {
-      const { row, col } = keyIndexToMatrix(keyIndex);
       const data = new Uint8Array(32);
       data[0] = 0x05;
       data[1] = layer;
-      data[2] = row;
-      data[3] = col;
-      data[4] = (keycode >> 8) & 0xFF;
-      data[5] = keycode & 0xFF;
+      data[2] = keyIndex;
+      data[3] = (keycode >> 8) & 0xFF;
+      data[4] = keycode & 0xFF;
 
-      console.log('🔍 DEBUG: Sending keycode command', {
+      console.log('🔍 DEBUG: Sending keycode command (FIXED FORMAT)', {
         keyIndex,
         keycode: '0x' + keycode.toString(16).padStart(4, '0'),
         layer,
-        row,
-        col,
         commandByte: '0x' + data[0].toString(16),
         fullPacket: Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
       });

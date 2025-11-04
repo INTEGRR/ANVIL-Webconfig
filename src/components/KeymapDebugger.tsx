@@ -45,15 +45,15 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
 
     try {
       const idx = parseInt(keyIndex);
+      const lyr = parseInt(layer);
       setTestResult(`🔍 Attempting to read keycode from key ${idx}...`);
 
       const data = new Uint8Array(32);
-      data[0] = 0x04;
-      data[1] = parseInt(layer);
-      data[2] = Math.floor(idx / 8);
-      data[3] = idx % 8;
+      data[0] = 0x06;
+      data[1] = lyr;
+      data[2] = idx;
 
-      console.log('📤 Sending read command:', Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+      console.log('📤 Sending read command (0x06):', Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
 
       await device.sendReport(0, data);
 
@@ -61,6 +61,13 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
         device.addEventListener('inputreport', (event: any) => {
           const response = new Uint8Array(event.data.buffer);
           console.log('📥 Read response:', Array.from(response).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+          if (response[0] === 0x06) {
+            const keycode = (response[3] << 8) | response[4];
+            console.log(`✅ Keycode read: 0x${keycode.toString(16).padStart(4, '0')}`);
+            setTestResult(`✅ Read keycode: 0x${keycode.toString(16).padStart(4, '0')} from key ${idx}`);
+          }
+
           resolve(response);
         }, { once: true });
 
@@ -69,10 +76,8 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
 
       const response = await responsePromise;
 
-      if (response) {
-        setTestResult(`✅ Got response! Check console.`);
-      } else {
-        setTestResult(`⚠️ No response within 1 second. Firmware might not support read command.`);
+      if (!response) {
+        setTestResult(`⚠️ No response within 1 second.`);
       }
     } catch (error: any) {
       setTestResult(`❌ Error: ${error.message}`);
@@ -176,15 +181,15 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
 
         <div className="bg-brand-teal/40 rounded-lg p-3 border border-brand-sage/20">
           <p className="text-brand-sage text-xs leading-relaxed">
-            <strong className="text-brand-blue">Debug Info:</strong><br />
-            • Command 0x05 = Write keycode<br />
-            • Command 0x04 = Read keycode<br />
+            <strong className="text-brand-blue">Protocol (Fixed):</strong><br />
+            • <span className="text-green-400">Command 0x05</span> = Write keycode: [cmd, layer, <strong>keyIndex</strong>, keycode_hi, keycode_lo]<br />
+            • <span className="text-green-400">Command 0x06</span> = Read keycode: [cmd, layer, <strong>keyIndex</strong>]<br />
             • Check browser console (F12) for detailed packet logs<br />
             <br />
-            <strong className="text-brand-blue">Response Analysis:</strong><br />
-            • Response `0x05 0x01 0x00...` = Firmware received command<br />
-            • Byte 1 = `0x01` might indicate error or unsupported operation<br />
-            • If keymap doesn't change: EEPROM might be read-only or command not implemented
+            <strong className="text-brand-blue">Expected Response:</strong><br />
+            • Write success: `0x05 0x01 0x00...`<br />
+            • Read success: `0x06 [layer] [keyIndex] [keycode_hi] [keycode_lo]`<br />
+            • Keymaps are stored in VIA dynamic keymap (EEPROM)
           </p>
         </div>
       </div>
