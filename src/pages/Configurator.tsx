@@ -451,7 +451,7 @@ export default function Configurator() {
         console.log('⚠️ No response from keyboard (this might be normal)');
       }
 
-      console.log(`✅ Sent keycode 0x${keycode.toString(16)} to key ${keyIndex} (row=${row}, col=${col}) on layer ${layer}`);
+      console.log(`✅ Sent keycode 0x${keycode.toString(16)} to key ${keyIndex} on layer ${layer}`);
     } catch (error) {
       console.error('❌ Error sending keycode to keyboard:', error);
       throw error;
