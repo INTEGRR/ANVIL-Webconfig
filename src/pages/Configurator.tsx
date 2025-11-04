@@ -9,6 +9,7 @@ import RGBControls from '../components/RGBControls';
 import EffectControls from '../components/EffectControls';
 import KeymapControls from '../components/KeymapControls';
 import KeycodeSelector from '../components/KeycodeSelector';
+import KeymapDebugger from '../components/KeymapDebugger';
 import { DEFAULT_COLORS, KEYBOARD_LAYOUT } from '../data/keyboardLayout';
 import { hsvToHex } from '../utils/colorUtils';
 import { EffectConfig, DEFAULT_EFFECT_CONFIG } from '../types/effects';
@@ -404,6 +405,12 @@ export default function Configurator() {
       [10, 0], [11, 0], [11, 1], [10, 1], [10, 5], [11, 5], [10, 6], [11, 6],
       [10, 7], [11, 7]
     ];
+
+    if (keyIndex < 0 || keyIndex >= KEY_TO_MATRIX.length) {
+      console.error(`⚠️ Invalid keyIndex ${keyIndex}. Valid range: 0-${KEY_TO_MATRIX.length - 1}`);
+      return { row: 0, col: 0 };
+    }
+
     return { row: KEY_TO_MATRIX[keyIndex][0], col: KEY_TO_MATRIX[keyIndex][1] };
   };
 
@@ -420,10 +427,36 @@ export default function Configurator() {
       data[4] = (keycode >> 8) & 0xFF;
       data[5] = keycode & 0xFF;
 
+      console.log('🔍 DEBUG: Sending keycode command', {
+        keyIndex,
+        keycode: '0x' + keycode.toString(16).padStart(4, '0'),
+        layer,
+        row,
+        col,
+        commandByte: '0x' + data[0].toString(16),
+        fullPacket: Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+      });
+
       await device.sendReport(0, data);
-      console.log(`Sent keycode 0x${keycode.toString(16)} to key ${keyIndex} (row=${row}, col=${col}) on layer ${layer}`);
+
+      // Try to read response from keyboard
+      try {
+        device.addEventListener('inputreport', (event: any) => {
+          console.log('📥 Response from keyboard:', {
+            reportId: event.reportId,
+            data: Array.from(new Uint8Array(event.data.buffer)).map((b: number) => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+          });
+        }, { once: true });
+
+        // Wait a bit for potential response
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (e) {
+        console.log('⚠️ No response from keyboard (this might be normal)');
+      }
+
+      console.log(`✅ Sent keycode 0x${keycode.toString(16)} to key ${keyIndex} (row=${row}, col=${col}) on layer ${layer}`);
     } catch (error) {
-      console.error('Error sending keycode to keyboard:', error);
+      console.error('❌ Error sending keycode to keyboard:', error);
       throw error;
     }
   };
@@ -452,15 +485,40 @@ export default function Configurator() {
       return;
     }
 
+    console.log('🚀 Starting keymap sync...');
+    console.log('📊 Current keymap:', keymap);
+
     try {
+      let successCount = 0;
+      let errorCount = 0;
+
       for (let i = 0; i < keymap.length; i++) {
         const keycodeValue = keycodeToHex(keymap[i]);
-        await sendKeycodeToKeyboard(i, keycodeValue, 0);
-        await new Promise(resolve => setTimeout(resolve, 15));
+
+        console.log(`\n--- Key ${i}/${keymap.length - 1} ---`);
+        console.log('Keycode string:', keymap[i]);
+        console.log('Converted to hex:', '0x' + keycodeValue.toString(16).padStart(4, '0'));
+
+        try {
+          await sendKeycodeToKeyboard(i, keycodeValue, 0);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to send key ${i}:`, err);
+          errorCount++;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
-      toast.success('Keymap synced to keyboard!');
+
+      console.log(`\n✅ Keymap sync complete: ${successCount} success, ${errorCount} errors`);
+
+      if (errorCount === 0) {
+        toast.success(`Keymap synced! ${successCount} keys updated`);
+      } else {
+        toast.warning(`Synced with ${errorCount} errors. Check console.`);
+      }
     } catch (error) {
-      console.error('Error syncing keymap:', error);
+      console.error('❌ Critical error syncing keymap:', error);
       toast.error('Failed to sync keymap to keyboard');
     }
   };
@@ -635,6 +693,12 @@ export default function Configurator() {
               onToggleMode={setKeymapMode}
               connected={connected}
               onSyncKeymap={syncKeymapToKeyboard}
+            />
+
+            <KeymapDebugger
+              device={device}
+              connected={connected}
+              onSendCommand={sendKeycodeToKeyboard}
             />
 
             <RGBControls
