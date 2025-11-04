@@ -412,17 +412,5 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 }
             }
             break;
-
-        case 0x07: // Initialize VIA EEPROM (reset to compiled keymap)
-            {
-                #ifdef VIA_ENABLE
-                eeconfig_init();
-                #endif
-
-                response[0] = 0x07;
-                response[1] = 0x01; // Success
-                raw_hid_send(response, 32);
-            }
-            break;
     }
 }

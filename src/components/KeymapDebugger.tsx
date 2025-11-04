@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bug, Send, Hash } from 'lucide-react';
+import { Bug, Send, Hash, Zap } from 'lucide-react';
 import { keycodeToHex } from '../utils/keycodeConverter';
 
 interface KeymapDebuggerProps {
@@ -79,6 +79,45 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
       if (!response) {
         setTestResult(`⚠️ No response within 1 second.`);
       }
+    } catch (error: any) {
+      setTestResult(`❌ Error: ${error.message}`);
+    }
+  };
+
+  const initializeViaEeprom = async () => {
+    if (!connected || !device) {
+      setTestResult('❌ Not connected to keyboard');
+      return;
+    }
+
+    try {
+      setTestResult(`⚡ Initializing VIA EEPROM...`);
+
+      const data = new Uint8Array(32);
+      data[0] = 0x07;
+
+      console.log('📤 Sending init command (0x07):', Array.from(data.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+      await device.sendReport(0, data);
+
+      const responsePromise = new Promise((resolve) => {
+        device.addEventListener('inputreport', (event: any) => {
+          const response = new Uint8Array(event.data.buffer);
+          console.log('📥 Init response:', Array.from(response).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+          if (response[0] === 0x07 && response[1] === 0x01) {
+            setTestResult(`✅ VIA EEPROM initialized successfully! You can now write keycodes.`);
+          } else {
+            setTestResult(`⚠️ Unexpected response from keyboard.`);
+          }
+
+          resolve(response);
+        }, { once: true });
+
+        setTimeout(() => resolve(null), 1000);
+      });
+
+      await responsePromise;
     } catch (error: any) {
       setTestResult(`❌ Error: ${error.message}`);
     }
@@ -172,6 +211,14 @@ export default function KeymapDebugger({ device, connected, onSendCommand, showI
             Test Read
           </button>
         </div>
+
+        <button
+          onClick={initializeViaEeprom}
+          className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm shadow-lg"
+        >
+          <Zap className="w-5 h-5" />
+          Initialize VIA EEPROM (Run this ONCE before first use)
+        </button>
 
         {testResult && (
           <div className="bg-brand-teal/60 rounded-lg p-3 border border-brand-sage/20">
